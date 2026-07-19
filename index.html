@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Controle de Vendas</title>
+<meta name="theme-color" content="#111111">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Controle de Vendas">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<style>
+*{box-sizing:border-box}
+:root{
+  --bg:#fff;--bg2:#f6f6f6;--bg3:#ececec;
+  --text:#111;--text2:#666;--text3:#999;
+  --border:#ddd;--border2:#bbb;
+  --primary:#b5406b;--primary-fg:#fff;--primary-bg:rgba(181,64,107,.12);
+  --danger:#c0392b;--radius:14px;--radius-sm:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1c1c1e;--bg2:#2c2c2e;--bg3:#3a3a3c;
+    --text:#f2f2f7;--text2:#aeaeb2;--text3:#636366;
+    --border:#38383a;--border2:#545456;
+    --primary:#e46a92;--primary-fg:#1c1c1e;--primary-bg:rgba(228,106,146,.16);
+  }
+}
+[data-theme="dark"]{
+  --bg:#1c1c1e;--bg2:#2c2c2e;--bg3:#3a3a3c;
+  --text:#f2f2f7;--text2:#aeaeb2;--text3:#636366;
+  --border:#38383a;--border2:#545456;
+  --primary:#e46a92;--primary-fg:#1c1c1e;--primary-bg:rgba(228,106,146,.16);
+}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:16px;overscroll-behavior:none;padding-bottom:24px}
+.hdr{padding:14px 16px 10px;border-bottom:.5px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:20}
+.btn-help{background:none;border:none;font-size:18px;cursor:pointer;color:var(--text)}
+.nav{display:flex;border-bottom:.5px solid var(--border);background:var(--bg);position:sticky;top:53px;z-index:20;overflow-x:auto}
+.nav button{flex:1;min-width:56px;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;padding:8px 2px;font-size:10px;color:var(--text2);font-family:inherit;cursor:pointer}
+.nav button .ni{font-size:18px}
+.nav button.active{color:var(--primary);font-weight:600}
+.app{padding:16px;max-width:520px;margin:0 auto}
+.screen{display:none}
+.screen.active{display:block}
+.slabel{font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px}
+.field-input,.field-select,textarea.field-input{width:100%;padding:12px 13px;font-size:15px;font-family:inherit;border:.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);outline:none}
+.btn{width:100%;padding:13px;font-size:15px;font-family:inherit;border:.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:500}
+.btn-primary{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
+.btn-ghost{background:transparent}
+.btn-danger{color:var(--danger);border-color:var(--danger)}
+.btn-sm{width:auto;padding:8px 14px;font-size:13px}
+.mt8{margin-top:8px}.mt16{margin-top:16px}
+.tipo-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.tipo-btn{padding:11px 6px;font-size:12px;font-family:inherit;border:.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px}
+.tipo-btn.sel{border-color:var(--primary);color:var(--primary);background:var(--primary-bg)}
+.card{background:var(--bg);border:.5px solid var(--border);border-radius:var(--radius);padding:13px 15px;margin-bottom:10px}
+.info-card{background:var(--bg2);border-radius:var(--radius);padding:13px 15px;margin-bottom:10px}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat-card{background:var(--bg2);border-radius:var(--radius);padding:14px}
+.stat-label{font-size:12px;color:var(--text2);margin-bottom:4px}
+.stat-value{font-size:19px;font-weight:700}
+.pf{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:.5px solid var(--border)}
+.pf:last-child{border-bottom:none}
+.fl{color:var(--text2);font-size:13px}
+.fv{font-weight:600;font-size:13px;text-align:right}
+.total-bar{background:var(--bg2);border-radius:var(--radius);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.lote-card,.cliente-card,.venda-card{background:var(--bg);border:.5px solid var(--border);border-radius:var(--radius);padding:13px 15px;margin-bottom:10px;cursor:pointer}
+.lote-card:active,.cliente-card:active,.venda-card:active{background:var(--bg2)}
+.vc-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px}
+.vc-nome{font-weight:600;font-size:14px}
+.vc-info{font-size:13px;color:var(--text2)}
+.badge{font-size:11px;padding:3px 8px;border-radius:20px;font-weight:600;white-space:nowrap}
+.badge-pago{background:#2e7d3222;color:#2e7d32}
+.badge-parcial{background:#b8860b22;color:#b8860b}
+.badge-pendente{background:#c0392b22;color:#c0392b}
+.badge-interno{background:var(--bg3);color:var(--text2)}
+.alert{border-radius:var(--radius-sm);padding:12px 14px;font-size:13px}
+.a-warn{background:#b8860b18;color:var(--text)}
+.empty,.empty-sm{color:var(--text3);font-size:13px;text-align:center;padding:24px 0}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:flex-end;justify-content:center;z-index:500;opacity:0;pointer-events:none;transition:opacity .15s}
+.modal-overlay.open{opacity:1;pointer-events:auto}
+.modal{background:var(--bg);border-radius:20px 20px 0 0;padding:20px 16px 40px;width:100%;max-width:520px;max-height:92dvh;overflow-y:auto}
+.modal-title{font-size:17px;font-weight:700;margin-bottom:16px}
+.pagamento-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:.5px solid var(--border);font-size:13px}
+.pagamento-item .tr{background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);padding:10px 18px;border-radius:20px;font-size:13px;opacity:0;pointer-events:none;transition:all .2s;z-index:900;max-width:80%;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+label.btn{display:flex}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <div style="font-weight:700;font-size:17px">Controle de Vendas</div>
+    <button class="btn-help" onclick="alternarTema()" id="btn-tema" title="Alternar tema">🌙</button>
+  </div>
+</div>
+
+<nav class="nav">
+  <button class="active" id="tab-resumo" onclick="go('resumo')"><span class="ni">📊</span>Resumo</button>
+  <button id="tab-lancar" onclick="go('lancar')"><span class="ni">➕</span>Lançar</button>
+  <button id="tab-vendas" onclick="go('vendas')"><span class="ni">🧾</span>Vendas</button>
+  <button id="tab-lotes" onclick="go('lotes')"><span class="ni">📦</span>Lotes</button>
+  <button id="tab-clientes" onclick="go('clientes')"><span class="ni">👤</span>Clientes</button>
+  <button id="tab-config" onclick="go('config')"><span class="ni">⚙️</span>Config</button>
+</nav>
+
+<div class="app">
+
+  <div id="screen-resumo" class="screen active">
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-label">Total vendido</div><div class="stat-value" id="res-vendido">R$ 0,00</div></div>
+      <div class="stat-card"><div class="stat-label">Lucro projetado</div><div class="stat-value" id="res-lucro">R$ 0,00</div></div>
+      <div class="stat-card"><div class="stat-label">Recebido</div><div class="stat-value" id="res-recebido">R$ 0,00</div></div>
+      <div class="stat-card"><div class="stat-label">A receber</div><div class="stat-value" id="res-a-receber">R$ 0,00</div></div>
+    </div>
+    <div class="info-card mt8">
+      <div class="pf"><div class="fl">Peças uso próprio/presente</div><div class="fv" id="res-pecas-internas">0</div></div>
+      <div class="pf"><div class="fl">Custo dessas peças</div><div class="fv" id="res-custo-interno">R$ 0,00</div></div>
+    </div>
+    <div class="slabel" style="margin-top:20px">Lotes abertos</div>
+    <div id="res-lotes-abertos"></div>
+  </div>
+
+  <div id="screen-lancar" class="screen">
+    <div id="lancar-sem-lote" class="alert a-warn" style="display:none">
+      Nenhum lote aberto. Cadastre um lote na aba <b>Lotes</b> antes de lançar vendas.
+    </div>
+    <div id="lancar-form">
+      <div class="slabel">Lote ativo</div>
+      <select id="lancar-lote-select" class="field-select" onchange="atualizarValorAutomatico()"></select>
+
+      <div class="slabel" style="margin-top:16px">Tipo de lançamento</div>
+      <div class="tipo-grid" id="lancar-tipos">
+        <button type="button" class="tipo-btn sel" id="tipo-btn-venda" onclick="setTipoVenda('venda')">🛍️<span>Venda</span></button>
+        <button type="button" class="tipo-btn" id="tipo-btn-uso_proprio" onclick="setTipoVenda('uso_proprio')">👗<span>Uso próprio</span></button>
+        <button type="button" class="tipo-btn" id="tipo-btn-presente" onclick="setTipoVenda('presente')">🎁<span>Presente</span></button>
+      </div>
+
+      <div id="campo-cliente" style="margin-top:16px">
+        <div class="slabel">Cliente</div>
+        <div style="display:flex;gap:8px">
+          <select id="lancar-cliente-select" class="field-select" style="flex:1"></select>
+          <button type="button" class="btn btn-sm" onclick="abrirNovoCliente(true)">➕ Nova</button>
+        </div>
+      </div>
+      <div id="campo-beneficiario" style="display:none;margin-top:16px">
+        <div class="slabel">Presente para (opcional)</div>
+        <input type="text" id="lancar-beneficiario" class="field-input" placeholder="Ex: irmã, mãe...">
+      </div>
+
+      <div class="slabel" style="margin-top:16px">Quantidade de peças</div>
+      <input type="number" id="lancar-qtd" class="field-input" min="1" oninput="atualizarValorAutomatico()">
+
+      <div class="slabel" style="margin-top:16px">Valor total</div>
+      <input type="text" id="lancar-valor" class="field-input" inputmode="numeric" placeholder="R$ 0,00" oninput="mascaraValor(this)">
+
+      <div class="slabel" style="margin-top:16px">Data</div>
+      <input type="date" id="lancar-data" class="field-input">
+
+      <div class="slabel" style="margin-top:16px">Observações (opcional)</div>
+      <input type="text" id="lancar-obs" class="field-input" placeholder="Ex: sutiã rendado preto">
+
+      <button class="btn btn-primary mt16" onclick="addVenda()">➕ Adicionar</button>
+    </div>
+  </div>
+
+  <div id="screen-vendas" class="screen">
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <select id="filtro-vendas-lote" class="field-select" onchange="renderVendas()" style="flex:1"></select>
+      <select id="filtro-vendas-status" class="field-select" onchange="renderVendas()" style="flex:1">
+        <option value="">Todos status</option>
+        <option value="pago">Pago</option>
+        <option value="parcial">Parcial</option>
+        <option value="pendente">Pendente</option>
+        <option value="interno">Interno</option>
+      </select>
+    </div>
+    <div id="lista-vendas"></div>
+  </div>
+
+  <div id="screen-lotes" class="screen">
+    <button class="btn btn-primary" onclick="abrirNovoLote()">➕ Novo lote</button>
+    <div id="lista-lotes" style="margin-top:16px"></div>
+  </div>
+
+  <div id="screen-clientes" class="screen">
+    <button class="btn btn-primary" onclick="abrirNovoCliente(false)">➕ Nova cliente</button>
+    <div id="lista-clientes" style="margin-top:16px"></div>
+  </div>
+
+  <div id="screen-config" class="screen">
+    <div class="slabel">Armazenamento</div>
+    <div class="info-card" style="font-size:13px">
+      Os dados ficam salvos somente neste aparelho (armazenamento local do navegador). Exporte um backup regularmente para não perder as informações.
+      <button class="btn btn-sm mt8" onclick="exportarBackup()">💾 Exportar backup</button>
+      <label class="btn btn-sm mt8" style="cursor:pointer">
+        📂 Importar backup
+        <input type="file" accept="application/json" style="display:none" onchange="importarBackup(this)">
+      </label>
+    </div>
+    <div class="slabel" style="margin-top:16px">Instalar app</div>
+    <div class="info-card" style="font-size:13px">
+      Instale o app na tela inicial do celular para acesso rápido, mesmo offline.
+      <button class="btn btn-primary mt8" id="btn-instalar" onclick="instalarApp()" style="display:none">📲 Instalar app</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="modal-overlay" id="modal-lote">
+  <div class="modal">
+    <div class="modal-title">Lote</div>
+    <div class="slabel">Nome do lote</div>
+    <input type="text" id="lote-nome" class="field-input">
+    <div class="slabel" style="margin-top:12px">Fornecedor (opcional)</div>
+    <input type="text" id="lote-fornecedor" class="field-input">
+    <div class="slabel" style="margin-top:12px">Data de recebimento</div>
+    <input type="date" id="lote-data-recebimento" class="field-input">
+    <div class="slabel" style="margin-top:12px">Data prevista de devolução (opcional)</div>
+    <input type="date" id="lote-data-devolucao" class="field-input">
+    <div class="slabel" style="margin-top:12px">Quantidade total de peças</div>
+    <input type="number" id="lote-quantidade" class="field-input" min="1">
+    <div class="slabel" style="margin-top:12px">Custo por peça (fixo, pago ao fornecedor)</div>
+    <input type="text" id="lote-custo" class="field-input" inputmode="numeric" placeholder="R$ 0,00" oninput="mascaraValor(this)">
+    <div class="slabel" style="margin-top:12px">Observações (opcional)</div>
+    <textarea id="lote-obs" class="field-input" rows="2"></textarea>
+    <button class="btn btn-primary mt16" onclick="salvarLote()">💾 Salvar</button>
+    <button class="btn btn-ghost mt8" onclick="closeModal('modal-lote')">Cancelar</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-lote-detalhe">
+  <div class="modal">
+    <div class="modal-title" id="ld-titulo"></div>
+    <div class="info-card" id="ld-info"></div>
+    <div class="slabel">Números do lote</div>
+    <div class="info-card" id="ld-stats"></div>
+    <div id="ld-fechamento-area"></div>
+    <button class="btn btn-sm mt8" onclick="editarLoteAtual()">✏️ Editar</button>
+    <button class="btn btn-primary mt16" id="ld-btn-fechar" onclick="abrirModalFecharLote()">📦 Fechar lote (devolução)</button>
+    <button class="btn mt8" id="ld-btn-reabrir" onclick="reabrirLote()">🔓 Reabrir lote</button>
+    <button class="btn btn-danger btn-ghost mt16" id="ld-btn-excluir" onclick="excluirLoteAtual()">🗑️ Excluir lote</button>
+    <button class="btn btn-ghost mt8" onclick="closeModal('modal-lote-detalhe')">Fechar</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-fechar-lote">
+  <div class="modal">
+    <div class="modal-title">Fechar lote / devolução</div>
+    <div class="info-card" id="fl-resumo"></div>
+    <div class="slabel">Quantidade devolvida ao fornecedor</div>
+    <input type="number" id="fl-devolvidas" class="field-input" min="0">
+    <div class="slabel" style="margin-top:12px">Valor a pagar ao fornecedor</div>
+    <input type="text" id="fl-valor-pagar" class="field-input" inputmode="numeric" oninput="mascaraValor(this)">
+    <div class="alert a-warn mt8" id="fl-aviso-receber" style="display:none"></div>
+    <div class="slabel" style="margin-top:12px">Observações (opcional)</div>
+    <textarea id="fl-obs" class="field-input" rows="2"></textarea>
+    <button class="btn btn-primary mt16" onclick="confirmarFechamentoLote()">✅ Confirmar fechamento</button>
+    <button class="btn btn-ghost mt8" onclick="closeModal('modal-fechar-lote')">Cancelar</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-cliente">
+  <div class="modal">
+    <div class="modal-title">Cliente</div>
+    <div class="slabel">Nome</div>
+    <input type="text" id="cliente-nome" class="field-input">
+    <div class="slabel" style="margin-top:12px">Telefone (opcional)</div>
+    <input type="text" id="cliente-telefone" class="field-input" placeholder="DDD + número">
+    <div class="slabel" style="margin-top:12px">Observações (opcional)</div>
+    <textarea id="cliente-obs" class="field-input" rows="2"></textarea>
+    <button class="btn btn-primary mt16" onclick="salvarCliente()">💾 Salvar</button>
+    <button class="btn btn-ghost mt8" onclick="closeModal('modal-cliente')">Cancelar</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-cliente-detalhe">
+  <div class="modal">
+    <div class="modal-title" id="cd-titulo"></div>
+    <div id="cd-telefone-area"></div>
+    <div class="total-bar mt8"><span>Saldo devedor</span><strong id="cd-saldo">R$ 0,00</strong></div>
+    <div class="slabel">Histórico de compras</div>
+    <div id="cd-lista-vendas"></div>
+    <button class="btn btn-sm mt16" onclick="editarClienteAtual()">✏️ Editar</button>
+    <button class="btn btn-danger btn-ghost mt8" onclick="excluirClienteAtual()">🗑️ Excluir cliente</button>
+    <button class="btn btn-ghost mt8" onclick="closeModal('modal-cliente-detalhe')">Fechar</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-venda">
+  <div class="modal">
+    <div class="modal-title" id="vd-titulo"></div>
+    <div class="info-card" style="font-size:13px" id="vd-lote"></div>
+    <div class="slabel">Quantidade de peças</div>
+    <input type="number" id="vd-qtd" class="field-input" min="1">
+    <div class="slabel" style="margin-top:12px">Valor total</div>
+    <input type="text" id="vd-valor" class="field-input" inputmode="numeric" oninput="mascaraValor(this)">
+    <div class="slabel" style="margin-top:12px">Data</div>
+    <input type="date" id="vd-data" class="field-input">
+    <div class="slabel" style="margin-top:12px">Observações</div>
+    <input type="text" id="vd-obs" class="field-input">
+    <div id="vd-resumo-pagamento" class="total-bar mt16">
+      <div>
+        <div style="font-size:12px;color:var(--text2)">Total · Pago · Saldo</div>
+        <div><strong id="vd-total"></strong> · <span id="vd-pago"></span> · <span id="vd-saldo"></span></div>
+      </div>
+    </div>
+    <button class="btn btn-primary mt8" id="vd-btn-pagamento" onclick="abrirModalPagamento()">💰 Registrar pagamento</button>
+    <div class="slabel" style="margin-top:16px">Pagamentos</div>
+    <div id="vd-lista-pagamentos"></div>
+    <button class="btn btn-sm mt16" onclick="salvarEdicaoVenda()">💾 Salvar alterações</button>
+    <button class="btn btn-danger btn-ghost mt8" onclick="excluirVenda()">🗑️ Excluir venda</button>
+    <button class="btn btn-ghost mt8" onclick="closeModal('modal-venda')">Fechar</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-pagamento">
+  <div class="modal">
+    <div class="modal-title">Registrar pagamento</div>
+    <input type="hidden" id="pagamento-venda-id">
+    <div class="slabel">Valor pago</div>
+    <input type="text" id="pagamento-valor" class="field-input" inputmode="numeric" oninput="mascaraValor(this)">
+    <div class="slabel" style="margin-top:12px">Data</div>
+    <input type="date" id="pagamento-data" class="field-input">
+    <div class="slabel" style="margin-top:12px">Forma (opcional)</div>
+    <select id="pagamento-forma" class="field-select">
+      <option value="">—</option>
+      <option value="pix">Pix</option>
+      <option value="dinheiro">Dinheiro</option>
+      <option value="cartao">Cartão</option>
+      <option value="outro">Outro</option>
+    </select>
+    <button class="btn btn-primary mt16" onclick="confirmarPagamento()">✅ Confirmar</button>
+    <button class="btn btn-ghost mt8" onclick="closeModal('modal-pagamento')">Cancelar</button>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY='cv_state';
+const THEME_KEY='cv_tema';
+let S=null;
+let telaAtual='resumo';
+let tipoAtual='venda';
+let zTop=500;
+let loteEditId=null, loteDetalheId=null, fecharLoteId=null;
+let clienteEditId=null, clienteDetalheId=null, clienteContextoLancar=false;
+let vendaDetalheId=null;
+let deferredPrompt=null;
+
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function formatDate(iso){ if(!iso) return '—'; const p=iso.split('-'); return p.length===3 ? `${p[2]}/${p[1]}/${p[0]}` : iso; }
+function hojeISO(){ return new Date().toISOString().slice(0,10); }
+function formatMoney(cents){ const n=(cents||0)/100; return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+function mascaraValor(el){
+  let digits = el.value.replace(/\D/g,'');
+  if(digits.length>9) digits = digits.slice(0,9);
+  const cents = digits ? parseInt(digits,10) : 0;
+  el.dataset.cents = cents;
+  el.value = formatMoney(cents);
+}
+
+function toast(msg){
+  let t = document.getElementById('toast');
+  if(!t){ t=document.createElement('div'); t.id='toast'; t.className='toast'; document.body.appendChild(t); }
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+function openModal(id){ zTop++; const el=document.getElementById(id); el.style.zIndex=zTop; el.classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+function estadoPadrao(){ return { versao:1, lotes:[], clientes:[], vendas:[], pagamentos:[] }; }
+function carregar(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    S = raw ? JSON.parse(raw) : estadoPadrao();
+  }catch(e){ S = estadoPadrao(); }
+  if(!Array.isArray(S.lotes)) S.lotes=[];
+  if(!Array.isArray(S.clientes)) S.clientes=[];
+  if(!Array.isArray(S.vendas)) S.vendas=[];
+  if(!Array.isArray(S.pagamentos)) S.pagamentos=[];
+}
+function salvar(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }catch(e){} }
+
+function lote(id){ return S.lotes.find(l=>l.id===id); }
+function cliente(id){ return S.clientes.find(c=>c.id===id); }
+function vendasDoLote(loteId){ return S.vendas.filter(v=>v.loteId===loteId); }
+function pagamentosDaVenda(vendaId){ return S.pagamentos.filter(p=>p.vendaId===vendaId); }
+function valorPagoVenda(vendaId){ return pagamentosDaVenda(vendaId).reduce((s,p)=>s+p.valorCents,0); }
+function saldoVenda(venda){ if(venda.tipo!=='venda') return 0; return venda.valorTotalCents - valorPagoVenda(venda.id); }
+function statusPagamentoVenda(venda){
+  if(venda.tipo!=='venda') return 'interno';
+  const pago = valorPagoVenda(venda.id);
+  if(pago<=0) return 'pendente';
+  if(pago>=venda.valorTotalCents) return 'pago';
+  return 'parcial';
+}
+function pecasPorTipo(loteId, tipo){ return vendasDoLote(loteId).filter(v=>v.tipo===tipo).reduce((s,v)=>s+v.quantidadePecas,0); }
+function estoqueRestanteLote(l){ const usadas = vendasDoLote(l.id).reduce((s,v)=>s+v.quantidadePecas,0); return l.quantidadeTotalPecas - usadas; }
+function valorVendidoLote(loteId){ return vendasDoLote(loteId).filter(v=>v.tipo==='venda').reduce((s,v)=>s+v.valorTotalCents,0); }
+function custoPecasLote(loteId, tipo){ const l=lote(loteId); return pecasPorTipo(loteId,tipo) * l.custoPorPecaCents; }
+function lucroLote(loteId){ const l=lote(loteId); const vendidas=pecasPorTipo(loteId,'venda'); return valorVendidoLote(loteId) - vendidas*l.custoPorPecaCents; }
+function recebidoLote(loteId){ return vendasDoLote(loteId).filter(v=>v.tipo==='venda').reduce((s,v)=>s+valorPagoVenda(v.id),0); }
+function aReceberLote(loteId){ return valorVendidoLote(loteId) - recebidoLote(loteId); }
+
+function totalVendidoGeral(){ return S.lotes.reduce((s,l)=>s+valorVendidoLote(l.id),0); }
+function lucroGeral(){ return S.lotes.reduce((s,l)=>s+lucroLote(l.id),0); }
+function totalRecebidoGeral(){ return S.lotes.reduce((s,l)=>s+recebidoLote(l.id),0); }
+function totalAReceberGeral(){ return totalVendidoGeral() - totalRecebidoGeral(); }
+function pecasInternasGeral(){ return S.lotes.reduce((s,l)=>s+pecasPorTipo(l.id,'uso_proprio')+pecasPorTipo(l.id,'presente'),0); }
+function custoInternoGeral(){ return S.lotes.reduce((s,l)=>s+custoPecasLote(l.id,'uso_proprio')+custoPecasLote(l.id,'presente'),0); }
+function saldoClienteTotal(clienteId){ return S.vendas.filter(v=>v.tipo==='venda' && v.clienteId===clienteId).reduce((s,v)=>s+saldoVenda(v),0); }
+
+function go(tela){
+  telaAtual = tela;
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('screen-'+tela).classList.add('active');
+  document.getElementById('tab-'+tela).classList.add('active');
+  renderTela(tela);
+}
+function renderTelaAtual(){ renderTela(telaAtual); }
+function renderTela(tela){
+  if(tela==='resumo') renderResumo();
+  if(tela==='lancar') renderLancar();
+  if(tela==='vendas') renderVendas();
+  if(tela==='lotes') renderLotes();
+  if(tela==='clientes') renderClientes();
+}
+
+function renderResumo(){
+  document.getElementById('res-vendido').textContent = formatMoney(totalVendidoGeral());
+  document.getElementById('res-lucro').textContent = formatMoney(lucroGeral());
+  document.getElementById('res-recebido').textContent = formatMoney(totalRecebidoGeral());
+  document.getElementById('res-a-receber').textContent = formatMoney(totalAReceberGeral());
+  document.getElementById('res-pecas-internas').textContent = pecasInternasGeral();
+  document.getElementById('res-custo-interno').textContent = formatMoney(custoInternoGeral());
+
+  const abertos = S.lotes.filter(l=>l.status==='aberto').sort((a,b)=>b.criadoEm-a.criadoEm);
+  document.getElementById('res-lotes-abertos').innerHTML = abertos.length
+    ? abertos.map(l=>{
+        const restante = estoqueRestanteLote(l);
+        const aReceber = aReceberLote(l.id);
+        return `<div class="lote-card" onclick="go('lotes');setTimeout(function(){abrirDetalheLote('${l.id}')},50)">
+          <div class="vc-top"><span class="vc-nome">${escapeHtml(l.nome)}</span><span class="badge badge-parcial">Aberto</span></div>
+          <div class="vc-info">restam ${restante} peça(s) · a receber ${formatMoney(aReceber)}</div>
+        </div>`;
+      }).join('')
+    : '<div class="empty-sm">Nenhum lote aberto no momento</div>';
+}
+
+function setTipoVenda(tipo){
+  tipoAtual = tipo;
+  document.querySelectorAll('#lancar-tipos .tipo-btn').forEach(b=>b.classList.remove('sel'));
+  document.getElementById('tipo-btn-'+tipo).classList.add('sel');
+  document.getElementById('campo-cliente').style.display = tipo==='venda' ? 'block':'none';
+  document.getElementById('campo-beneficiario').style.display = tipo==='presente' ? 'block':'none';
+  const valorInput = document.getElementById('lancar-valor');
+  valorInput.readOnly = tipo!=='venda';
+  atualizarValorAutomatico();
+}
+function atualizarValorAutomatico(){
+  if(tipoAtual==='venda') return;
+  const loteId = document.getElementById('lancar-lote-select').value;
+  const l = lote(loteId);
+  const qtd = parseInt(document.getElementById('lancar-qtd').value||'0',10);
+  const cents = l ? qtd*l.custoPorPecaCents : 0;
+  const el = document.getElementById('lancar-valor');
+  el.dataset.cents = cents;
+  el.value = formatMoney(cents);
+}
+function renderLancar(){
+  const abertos = S.lotes.filter(l=>l.status==='aberto');
+  const sel = document.getElementById('lancar-lote-select');
+  const anterior = sel.value;
+  sel.innerHTML = abertos.length
+    ? abertos.map(l=>`<option value="${l.id}">${escapeHtml(l.nome)} (custo ${formatMoney(l.custoPorPecaCents)}/peça)</option>`).join('')
+    : `<option value="">Nenhum lote aberto</option>`;
+  if(abertos.some(l=>l.id===anterior)) sel.value = anterior;
+
+  const selCli = document.getElementById('lancar-cliente-select');
+  selCli.innerHTML = S.clientes.length
+    ? S.clientes.slice().sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(c=>`<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('')
+    : `<option value="">Nenhuma cliente cadastrada</option>`;
+
+  const dataEl = document.getElementById('lancar-data');
+  if(!dataEl.value) dataEl.value = hojeISO();
+
+  document.getElementById('lancar-sem-lote').style.display = abertos.length ? 'none':'block';
+  document.getElementById('lancar-form').style.display = abertos.length ? 'block':'none';
+
+  atualizarValorAutomatico();
+}
+function addVenda(){
+  const loteId = document.getElementById('lancar-lote-select').value;
+  const l = lote(loteId);
+  if(!l){ toast('Selecione um lote'); return; }
+  const qtd = parseInt(document.getElementById('lancar-qtd').value||'0',10);
+  if(!qtd || qtd<=0){ toast('Informe a quantidade de peças'); return; }
+
+  let clienteId=null, beneficiario='';
+  if(tipoAtual==='venda'){
+    clienteId = document.getElementById('lancar-cliente-select').value;
+    if(!clienteId){ toast('Selecione o cliente'); return; }
+  }
+  if(tipoAtual==='presente'){
+    beneficiario = document.getElementById('lancar-beneficiario').value.trim();
+  }
+
+  let valorCents;
+  if(tipoAtual==='venda'){
+    valorCents = parseInt(document.getElementById('lancar-valor').dataset.cents||'0',10);
+    if(!valorCents){ toast('Informe o valor da venda'); return; }
+  } else {
+    valorCents = qtd * l.custoPorPecaCents;
+  }
+
+  const restanteAntes = estoqueRestanteLote(l);
+  if(qtd > restanteAntes){
+    if(!confirm(`Atenção: só restam ${restanteAntes} peça(s) em estoque neste lote. Deseja lançar mesmo assim?`)) return;
+  }
+
+  const data = document.getElementById('lancar-data').value || hojeISO();
+  const obs = document.getElementById('lancar-obs').value.trim();
+  S.vendas.push({ id:uid(), loteId, tipo:tipoAtual, clienteId, beneficiario, data, quantidadePecas:qtd, valorTotalCents:valorCents, observacoes:obs, criadoEm:Date.now() });
+  salvar();
+  toast('Lançamento adicionado');
+
+  document.getElementById('lancar-qtd').value='';
+  document.getElementById('lancar-obs').value='';
+  document.getElementById('lancar-beneficiario').value='';
+  if(tipoAtual==='venda'){ const v=document.getElementById('lancar-valor'); v.value=''; v.dataset.cents='0'; }
+  renderLancar();
+}
+
+function vendaCardHtml(v){
+  const l = lote(v.loteId);
+  const cli = v.clienteId ? cliente(v.clienteId) : null;
+  const status = statusPagamentoVenda(v);
+  const label = v.tipo==='venda' ? (cli?escapeHtml(cli.nome):'Cliente removido') : (v.tipo==='uso_proprio' ? 'Uso próprio' : 'Presente'+(v.beneficiario?': '+escapeHtml(v.beneficiario):''));
+  const badge = status==='pago' ? '<span class="badge badge-pago">Pago</span>'
+    : status==='parcial' ? '<span class="badge badge-parcial">Parcial</span>'
+    : status==='pendente' ? '<span class="badge badge-pendente">Pendente</span>'
+    : '<span class="badge badge-interno">Interno</span>';
+  return `<div class="venda-card" onclick="abrirDetalheVenda('${v.id}')">
+    <div class="vc-top"><span class="vc-nome">${label}</span>${badge}</div>
+    <div class="vc-info">${v.quantidadePecas} peça(s) · ${formatMoney(v.valorTotalCents)} · ${formatDate(v.data)}${l?(' · '+escapeHtml(l.nome)):''}</div>
+  </div>`;
+}
+function renderVendas(){
+  const selLote = document.getElementById('filtro-vendas-lote');
+  const anterior = selLote.value;
+  selLote.innerHTML = '<option value="">Todos os lotes</option>' +
+    S.lotes.slice().sort((a,b)=>b.criadoEm-a.criadoEm).map(l=>`<option value="${l.id}">${escapeHtml(l.nome)}</option>`).join('');
+  selLote.value = anterior;
+
+  const filtroLote = selLote.value;
+  const filtroStatus = document.getElementById('filtro-vendas-status').value;
+  let lista = S.vendas.slice().sort((a,b)=>b.criadoEm-a.criadoEm);
+  if(filtroLote) lista = lista.filter(v=>v.loteId===filtroLote);
+  if(filtroStatus) lista = lista.filter(v=>statusPagamentoVenda(v)===filtroStatus);
+  document.getElementById('lista-vendas').innerHTML = lista.length ? lista.map(vendaCardHtml).join('') : '<div class="empty">Nenhuma venda encontrada</div>';
+}
+
+function abrirDetalheVenda(id){
+  vendaDetalheId = id;
+  const v = S.vendas.find(x=>x.id===id);
+  const l = lote(v.loteId);
+  const cli = v.clienteId ? cliente(v.clienteId) : null;
+  document.getElementById('vd-titulo').textContent = v.tipo==='venda' ? (cli?cli.nome:'Cliente removido') : (v.tipo==='uso_proprio'?'Uso próprio':'Presente');
+  document.getElementById('vd-lote').textContent = 'Lote: ' + (l?l.nome:'—');
+  document.getElementById('vd-qtd').value = v.quantidadePecas;
+  document.getElementById('vd-data').value = v.data;
+  document.getElementById('vd-obs').value = v.observacoes || '';
+  const valorEl = document.getElementById('vd-valor');
+  valorEl.dataset.cents = v.valorTotalCents;
+  valorEl.value = formatMoney(v.valorTotalCents);
+  valorEl.readOnly = v.tipo !== 'venda';
+  document.getElementById('vd-btn-pagamento').style.display = v.tipo==='venda' ? 'block':'none';
+  document.getElementById('vd-resumo-pagamento').style.display = v.tipo==='venda' ? 'flex':'none';
+  const pago = valorPagoVenda(v.id);
+  document.getElementById('vd-total').textContent = formatMoney(v.valorTotalCents);
+  document.getElementById('vd-pago').textContent = formatMoney(pago);
+  document.getElementById('vd-saldo').textContent = formatMoney(saldoVenda(v));
+  const pagamentos = pagamentosDaVenda(v.id).sort((a,b)=>b.criadoEm-a.criadoEm);
+  document.getElementById('vd-lista-pagamentos').innerHTML = pagamentos.length
+    ? pagamentos.map(p=>`<div class="pagamento-item"><span>${formatDate(p.data)}${p.forma?(' · '+p.forma):''}</span><span>${formatMoney(p.valorCents)}</span><button class="tr" onclick="excluirPagamento('${p.id}')">✕</button></div>`).join('')
+    : '<div class="empty-sm">Nenhum pagamento registrado</div>';
+  openModal('modal-venda');
+}
+function salvarEdicaoVenda(){
+  const v = S.vendas.find(x=>x.id===vendaDetalheId);
+  v.quantidadePecas = parseInt(document.getElementById('vd-qtd').value||'0',10);
+  v.data = document.getElementById('vd-data').value;
+  v.observacoes = document.getElementById('vd-obs').value.trim();
+  if(v.tipo==='venda'){
+    v.valorTotalCents = parseInt(document.getElementById('vd-valor').dataset.cents||'0',10);
+  } else {
+    const l = lote(v.loteId);
+    v.valorTotalCents = v.quantidadePecas * l.custoPorPecaCents;
+  }
+  salvar();
+  toast('Venda atualizada');
+  closeModal('modal-venda');
+  renderTelaAtual();
+}
+function excluirVenda(){
+  if(!confirm('Excluir esta venda e todos os pagamentos associados?')) return;
+  S.pagamentos = S.pagamentos.filter(p=>p.vendaId!==vendaDetalheId);
+  S.vendas = S.vendas.filter(v=>v.id!==vendaDetalheId);
+  salvar();
+  closeModal('modal-venda');
+  toast('Venda excluída');
+  renderTelaAtual();
+}
+function excluirPagamento(id){
+  if(!confirm('Excluir este pagamento?')) return;
+  S.pagamentos = S.pagamentos.filter(p=>p.id!==id);
+  salvar();
+  abrirDetalheVenda(vendaDetalheId);
+  renderTelaAtual();
+}
+function abrirModalPagamento(){
+  const v = S.vendas.find(x=>x.id===vendaDetalheId);
+  document.getElementById('pagamento-venda-id').value = v.id;
+  document.getElementById('pagamento-data').value = hojeISO();
+  const saldo = saldoVenda(v);
+  const el = document.getElementById('pagamento-valor');
+  const valor = saldo>0?saldo:0;
+  el.dataset.cents = valor;
+  el.value = formatMoney(valor);
+  document.getElementById('pagamento-forma').value='';
+  openModal('modal-pagamento');
+}
+function confirmarPagamento(){
+  const vendaId = document.getElementById('pagamento-venda-id').value;
+  const valorCents = parseInt(document.getElementById('pagamento-valor').dataset.cents||'0',10);
+  if(!valorCents || valorCents<=0){ toast('Informe o valor pago'); return; }
+  const data = document.getElementById('pagamento-data').value || hojeISO();
+  const forma = document.getElementById('pagamento-forma').value;
+  S.pagamentos.push({ id:uid(), vendaId, data, valorCents, forma, criadoEm:Date.now() });
+  salvar();
+  closeModal('modal-pagamento');
+  toast('Pagamento registrado');
+  if(vendaDetalheId===vendaId) abrirDetalheVenda(vendaId);
+  renderTelaAtual();
+}
+
+function loteCardHtml(l){
+  const restante = estoqueRestanteLote(l);
+  return `<div class="lote-card" onclick="abrirDetalheLote('${l.id}')">
+    <div class="vc-top"><span class="vc-nome">${escapeHtml(l.nome)}</span>${l.status==='aberto'?'<span class="badge badge-parcial">Aberto</span>':'<span class="badge badge-interno">Fechado</span>'}</div>
+    <div class="vc-info">${l.quantidadeTotalPecas} peças · custo ${formatMoney(l.custoPorPecaCents)}/peça${l.status==='aberto'?(' · restam '+restante):''}</div>
+  </div>`;
+}
+function renderLotes(){
+  const abertos = S.lotes.filter(l=>l.status==='aberto').sort((a,b)=>b.criadoEm-a.criadoEm);
+  const fechados = S.lotes.filter(l=>l.status==='fechado').sort((a,b)=>b.criadoEm-a.criadoEm);
+  const blocos=[];
+  if(abertos.length) blocos.push('<div class="slabel">Abertos</div>'+abertos.map(loteCardHtml).join(''));
+  if(fechados.length) blocos.push('<div class="slabel" style="margin-top:16px">Fechados</div>'+fechados.map(loteCardHtml).join(''));
+  document.getElementById('lista-lotes').innerHTML = blocos.length ? blocos.join('') : '<div class="empty">Nenhum lote cadastrado</div>';
+}
+function sugerirNomeLote(){
+  const meses=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const d = new Date();
+  return 'Lote '+meses[d.getMonth()]+'/'+d.getFullYear();
+}
+function preencherFormLote(l){
+  document.getElementById('lote-nome').value = l ? l.nome : sugerirNomeLote();
+  document.getElementById('lote-fornecedor').value = l ? (l.fornecedor||'') : '';
+  document.getElementById('lote-data-recebimento').value = l ? l.dataRecebimento : hojeISO();
+  document.getElementById('lote-data-devolucao').value = l ? (l.dataDevolucao||'') : '';
+  document.getElementById('lote-quantidade').value = l ? l.quantidadeTotalPecas : '';
+  const custoEl = document.getElementById('lote-custo');
+  custoEl.dataset.cents = l ? l.custoPorPecaCents : 0;
+  custoEl.value = l ? formatMoney(l.custoPorPecaCents) : '';
+  document.getElementById('lote-obs').value = l ? (l.observacoes||'') : '';
+  loteEditId = l ? l.id : null;
+}
+function abrirNovoLote(){ preencherFormLote(null); openModal('modal-lote'); }
+function salvarLote(){
+  const nome = document.getElementById('lote-nome').value.trim();
+  const qtd = parseInt(document.getElementById('lote-quantidade').value||'0',10);
+  const custoCents = parseInt(document.getElementById('lote-custo').dataset.cents||'0',10);
+  const dataRec = document.getElementById('lote-data-recebimento').value;
+  if(!nome){ toast('Informe o nome do lote'); return; }
+  if(!qtd || qtd<=0){ toast('Informe a quantidade de peças'); return; }
+  if(!custoCents){ toast('Informe o custo por peça'); return; }
+  if(!dataRec){ toast('Informe a data de recebimento'); return; }
+  const dados = {
+    nome, fornecedor: document.getElementById('lote-fornecedor').value.trim(),
+    dataRecebimento: dataRec,
+    dataDevolucao: document.getElementById('lote-data-devolucao').value,
+    quantidadeTotalPecas: qtd,
+    custoPorPecaCents: custoCents,
+    observacoes: document.getElementById('lote-obs').value.trim()
+  };
+  if(loteEditId){ Object.assign(lote(loteEditId), dados); toast('Lote atualizado'); }
+  else { S.lotes.push({ id:uid(), status:'aberto', fechamento:null, criadoEm:Date.now(), ...dados }); toast('Lote criado'); }
+  salvar();
+  closeModal('modal-lote');
+  renderTelaAtual();
+}
+function abrirDetalheLote(id){
+  loteDetalheId = id;
+  const l = lote(id);
+  const vendidas = pecasPorTipo(id,'venda');
+  const usoProprio = pecasPorTipo(id,'uso_proprio');
+  const presente = pecasPorTipo(id,'presente');
+  const restante = estoqueRestanteLote(l);
+  const vendido = valorVendidoLote(id);
+  const recebido = recebidoLote(id);
+  const aReceber = aReceberLote(id);
+  const lucro = lucroLote(id);
+  const custoInterno = custoPecasLote(id,'uso_proprio') + custoPecasLote(id,'presente');
+
+  document.getElementById('ld-titulo').textContent = l.nome;
+  document.getElementById('ld-info').innerHTML = `
+    ${l.fornecedor?`<div class="pf"><div class="fl">Fornecedor</div><div class="fv">${escapeHtml(l.fornecedor)}</div></div>`:''}
+    <div class="pf"><div class="fl">Recebido em</div><div class="fv">${formatDate(l.dataRecebimento)}</div></div>
+    <div class="pf"><div class="fl">Devolução prevista</div><div class="fv">${formatDate(l.dataDevolucao)}</div></div>
+    <div class="pf"><div class="fl">Total de peças</div><div class="fv">${l.quantidadeTotalPecas}</div></div>
+    <div class="pf"><div class="fl">Custo por peça</div><div class="fv">${formatMoney(l.custoPorPecaCents)}</div></div>`;
+  document.getElementById('ld-stats').innerHTML = `
+    <div class="pf"><div class="fl">Vendidas</div><div class="fv">${vendidas}</div></div>
+    <div class="pf"><div class="fl">Uso próprio</div><div class="fv">${usoProprio}</div></div>
+    <div class="pf"><div class="fl">Presente</div><div class="fv">${presente}</div></div>
+    <div class="pf"><div class="fl">Ainda em estoque</div><div class="fv">${restante}</div></div>
+    <div class="pf"><div class="fl">Valor vendido</div><div class="fv">${formatMoney(vendido)}</div></div>
+    <div class="pf"><div class="fl">Recebido</div><div class="fv">${formatMoney(recebido)}</div></div>
+    <div class="pf"><div class="fl">A receber</div><div class="fv">${formatMoney(aReceber)}</div></div>
+    <div class="pf"><div class="fl">Lucro projetado</div><div class="fv">${formatMoney(lucro)}</div></div>
+    <div class="pf"><div class="fl">Custo uso próprio/presente</div><div class="fv">${formatMoney(custoInterno)}</div></div>`;
+
+  const areaFechamento = document.getElementById('ld-fechamento-area');
+  areaFechamento.innerHTML = (l.status==='fechado' && l.fechamento)
+    ? `<div class="alert a-warn mt16">Lote fechado em ${formatDate(l.fechamento.dataFechamentoReal)}<br>Peças devolvidas: ${l.fechamento.pecasDevolvidas}<br>Valor pago ao fornecedor: ${formatMoney(l.fechamento.valorPagoFornecedorCents)}</div>`
+    : '';
+
+  document.getElementById('ld-btn-fechar').style.display = l.status==='aberto' ? 'block':'none';
+  document.getElementById('ld-btn-reabrir').style.display = l.status==='fechado' ? 'block':'none';
+  document.getElementById('ld-btn-excluir').style.display = (S.vendas.filter(v=>v.loteId===id).length===0) ? 'block':'none';
+  openModal('modal-lote-detalhe');
+}
+function editarLoteAtual(){ preencherFormLote(lote(loteDetalheId)); closeModal('modal-lote-detalhe'); openModal('modal-lote'); }
+function excluirLoteAtual(){
+  if(!confirm('Excluir este lote? Essa ação não pode ser desfeita.')) return;
+  S.lotes = S.lotes.filter(l=>l.id!==loteDetalheId);
+  salvar();
+  closeModal('modal-lote-detalhe');
+  toast('Lote excluído');
+  renderTelaAtual();
+}
+function reabrirLote(){
+  const l = lote(loteDetalheId);
+  l.status='aberto'; l.fechamento=null;
+  salvar();
+  toast('Lote reaberto');
+  abrirDetalheLote(loteDetalheId);
+  renderTelaAtual();
+}
+function abrirModalFecharLote(){
+  fecharLoteId = loteDetalheId;
+  const l = lote(fecharLoteId);
+  const vendidas = pecasPorTipo(l.id,'venda');
+  const usoProprio = pecasPorTipo(l.id,'uso_proprio');
+  const presente = pecasPorTipo(l.id,'presente');
+  const naoLancadas = l.quantidadeTotalPecas - (vendidas+usoProprio+presente);
+  document.getElementById('fl-resumo').innerHTML = `
+    <div class="pf"><div class="fl">Total do lote</div><div class="fv">${l.quantidadeTotalPecas}</div></div>
+    <div class="pf"><div class="fl">Vendidas</div><div class="fv">${vendidas}</div></div>
+    <div class="pf"><div class="fl">Uso próprio</div><div class="fv">${usoProprio}</div></div>
+    <div class="pf"><div class="fl">Presente</div><div class="fv">${presente}</div></div>
+    <div class="pf"><div class="fl">Ainda não lançadas</div><div class="fv">${naoLancadas}</div></div>`;
+  document.getElementById('fl-devolvidas').value = naoLancadas>0?naoLancadas:0;
+  const valorEstimado = (vendidas+usoProprio+presente)*l.custoPorPecaCents;
+  const valorEl = document.getElementById('fl-valor-pagar');
+  valorEl.dataset.cents = valorEstimado;
+  valorEl.value = formatMoney(valorEstimado);
+  const aReceber = aReceberLote(l.id);
+  const avisoEl = document.getElementById('fl-aviso-receber');
+  avisoEl.style.display = aReceber>0 ? 'block':'none';
+  avisoEl.textContent = `Ainda há ${formatMoney(aReceber)} a receber de clientes deste lote — isso não impede o fechamento.`;
+  document.getElementById('fl-obs').value='';
+  closeModal('modal-lote-detalhe');
+  openModal('modal-fechar-lote');
+}
+function confirmarFechamentoLote(){
+  const l = lote(fecharLoteId);
+  const vendidas = pecasPorTipo(l.id,'venda');
+  const usoProprio = pecasPorTipo(l.id,'uso_proprio');
+  const presente = pecasPorTipo(l.id,'presente');
+  const devolvidas = parseInt(document.getElementById('fl-devolvidas').value||'0',10);
+  const soma = vendidas+usoProprio+presente+devolvidas;
+  if(soma !== l.quantidadeTotalPecas){
+    if(!confirm(`A soma das peças (${soma}) não bate com o total do lote (${l.quantidadeTotalPecas}). Deseja continuar mesmo assim?`)) return;
+  }
+  const valorPagoCents = parseInt(document.getElementById('fl-valor-pagar').dataset.cents||'0',10);
+  l.status='fechado';
+  l.fechamento = {
+    dataFechamentoReal: hojeISO(),
+    pecasVendidasSnapshot: vendidas,
+    pecasUsoProprioSnapshot: usoProprio,
+    pecasPresenteSnapshot: presente,
+    pecasDevolvidas: devolvidas,
+    valorPagoFornecedorCents: valorPagoCents,
+    observacoes: document.getElementById('fl-obs').value.trim()
+  };
+  salvar();
+  closeModal('modal-fechar-lote');
+  toast('Lote fechado');
+  renderTelaAtual();
+}
+
+function clienteCardHtml(c){
+  const saldo = saldoClienteTotal(c.id);
+  return `<div class="cliente-card" onclick="abrirDetalheCliente('${c.id}')">
+    <div class="vc-top"><span class="vc-nome">${escapeHtml(c.nome)}</span>${saldo>0?`<span class="badge badge-pendente">Deve ${formatMoney(saldo)}</span>`:'<span class="badge badge-pago">Em dia</span>'}</div>
+    ${c.telefone?`<div class="vc-info">${escapeHtml(c.telefone)}</div>`:''}
+  </div>`;
+}
+function renderClientes(){
+  const lista = S.clientes.slice().sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
+  document.getElementById('lista-clientes').innerHTML = lista.length ? lista.map(clienteCardHtml).join('') : '<div class="empty">Nenhuma cliente cadastrada</div>';
+}
+function abrirNovoCliente(doLancar){
+  clienteEditId = null;
+  clienteContextoLancar = !!doLancar;
+  document.getElementById('cliente-nome').value='';
+  document.getElementById('cliente-telefone').value='';
+  document.getElementById('cliente-obs').value='';
+  openModal('modal-cliente');
+}
+function editarClienteAtual(){
+  const c = cliente(clienteDetalheId);
+  clienteEditId = c.id;
+  clienteContextoLancar = false;
+  document.getElementById('cliente-nome').value = c.nome;
+  document.getElementById('cliente-telefone').value = c.telefone||'';
+  document.getElementById('cliente-obs').value = c.observacoes||'';
+  closeModal('modal-cliente-detalhe');
+  openModal('modal-cliente');
+}
+function salvarCliente(){
+  const nome = document.getElementById('cliente-nome').value.trim();
+  if(!nome){ toast('Informe o nome'); return; }
+  const dados = {
+    nome,
+    telefone: document.getElementById('cliente-telefone').value.trim(),
+    observacoes: document.getElementById('cliente-obs').value.trim()
+  };
+  let novoId = clienteEditId;
+  if(clienteEditId){ Object.assign(cliente(clienteEditId), dados); toast('Cliente atualizada'); }
+  else { novoId = uid(); S.clientes.push({ id:novoId, criadoEm:Date.now(), ...dados }); toast('Cliente cadastrada'); }
+  salvar();
+  closeModal('modal-cliente');
+  if(clienteContextoLancar){
+    renderLancar();
+    document.getElementById('lancar-cliente-select').value = novoId;
+    clienteContextoLancar = false;
+  }
+  renderTelaAtual();
+}
+function abrirDetalheCliente(id){
+  clienteDetalheId = id;
+  const c = cliente(id);
+  document.getElementById('cd-titulo').textContent = c.nome;
+  document.getElementById('cd-telefone-area').innerHTML = c.telefone
+    ? `<a class="btn btn-ghost mt8" href="https://wa.me/55${c.telefone.replace(/\D/g,'')}" target="_blank">💬 WhatsApp</a>`
+    : '';
+  const vendas = S.vendas.filter(v=>v.tipo==='venda' && v.clienteId===id).sort((a,b)=>b.criadoEm-a.criadoEm);
+  document.getElementById('cd-lista-vendas').innerHTML = vendas.length ? vendas.map(vendaCardHtml).join('') : '<div class="empty-sm">Nenhuma compra registrada</div>';
+  document.getElementById('cd-saldo').textContent = formatMoney(saldoClienteTotal(id));
+  openModal('modal-cliente-detalhe');
+}
+function excluirClienteAtual(){
+  const temVendas = S.vendas.some(v=>v.clienteId===clienteDetalheId);
+  if(temVendas){ toast('Não é possível excluir: cliente possui vendas registradas'); return; }
+  if(!confirm('Excluir esta cliente?')) return;
+  S.clientes = S.clientes.filter(c=>c.id!==clienteDetalheId);
+  salvar();
+  closeModal('modal-cliente-detalhe');
+  toast('Cliente excluída');
+  renderTelaAtual();
+}
+
+function exportarBackup(){
+  const blob = new Blob([JSON.stringify(S,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `controle-vendas-backup-${hojeISO()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  toast('Backup exportado');
+}
+function importarBackup(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const dados = JSON.parse(reader.result);
+      if(!dados || !Array.isArray(dados.lotes)) throw new Error('formato inválido');
+      if(!confirm('Importar este backup vai SUBSTITUIR todos os dados atuais do app. Continuar?')) return;
+      S = dados;
+      if(!Array.isArray(S.lotes)) S.lotes=[];
+      if(!Array.isArray(S.clientes)) S.clientes=[];
+      if(!Array.isArray(S.vendas)) S.vendas=[];
+      if(!Array.isArray(S.pagamentos)) S.pagamentos=[];
+      salvar();
+      toast('Backup importado com sucesso');
+      renderTelaAtual();
+    }catch(e){ toast('Arquivo inválido'); }
+  };
+  reader.readAsText(file);
+  input.value='';
+}
+
+function estaEscuro(){
+  const t = document.documentElement.getAttribute('data-theme');
+  if(t==='dark') return true;
+  if(t==='light') return false;
+  return matchMedia('(prefers-color-scheme: dark)').matches;
+}
+function aplicarTema(t){
+  if(t) document.documentElement.setAttribute('data-theme', t);
+  else document.documentElement.removeAttribute('data-theme');
+  document.getElementById('btn-tema').textContent = estaEscuro() ? '☀️' : '🌙';
+}
+function alternarTema(){
+  const novo = estaEscuro() ? 'light' : 'dark';
+  localStorage.setItem(THEME_KEY, novo);
+  aplicarTema(novo);
+}
+
+function configurarInstalacao(){
+  window.addEventListener('beforeinstallprompt', (e)=>{
+    e.preventDefault();
+    deferredPrompt = e;
+    const btn = document.getElementById('btn-instalar');
+    if(btn) btn.style.display='block';
+  });
+}
+function instalarApp(){
+  if(!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.finally(()=>{ deferredPrompt=null; document.getElementById('btn-instalar').style.display='none'; });
+}
+function registrarServiceWorker(){
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  }
+}
+
+function iniciar(){
+  carregar();
+  aplicarTema(localStorage.getItem(THEME_KEY));
+  setTipoVenda('venda');
+  go('resumo');
+  configurarInstalacao();
+  registrarServiceWorker();
+}
+document.addEventListener('DOMContentLoaded', iniciar);
+</script>
+</body>
+</html>
