@@ -92,11 +92,21 @@ label.btn{display:flex}
 </head>
 <body>
 
+<div id="login-screen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:999;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center">
+  <img src="icon-192.png" style="width:88px;height:88px;border-radius:20px;margin-bottom:20px" alt="">
+  <div style="font-size:20px;font-weight:700;margin-bottom:8px">Controle de Vendas</div>
+  <div style="font-size:14px;color:var(--text2);margin-bottom:28px;max-width:320px">Entre com sua conta Google para acessar seus dados de qualquer aparelho</div>
+  <button class="btn btn-primary" id="btn-google-login" onclick="loginComGoogle()" style="max-width:280px">🔐 Entrar com Google</button>
+  <div id="login-loading" style="display:none;font-size:14px;color:var(--text2);margin-top:16px">Conectando...</div>
+</div>
+
+<div id="main-app" style="display:none">
 <div class="hdr">
   <div style="display:flex;justify-content:space-between;align-items:center">
     <div style="font-weight:700;font-size:17px">Controle de Vendas</div>
     <button class="btn-help" onclick="alternarTema()" id="btn-tema" title="Alternar tema">🌙</button>
   </div>
+  <div id="sync-status" style="font-size:11px;color:var(--text2);margin-top:2px"></div>
 </div>
 
 <nav class="nav">
@@ -193,9 +203,14 @@ label.btn{display:flex}
   </div>
 
   <div id="screen-config" class="screen">
-    <div class="slabel">Armazenamento</div>
+    <div class="slabel">Conta</div>
     <div class="info-card" style="font-size:13px">
-      Os dados ficam salvos somente neste aparelho (armazenamento local do navegador). Exporte um backup regularmente para não perder as informações.
+      <div id="config-conta-info">Conectada</div>
+      <button class="btn btn-sm btn-ghost mt8" onclick="sair()">🚪 Sair da conta</button>
+    </div>
+    <div class="slabel" style="margin-top:16px">Armazenamento</div>
+    <div class="info-card" style="font-size:13px">
+      Os dados ficam salvos no Google Drive da conta conectada — sincronizam automaticamente entre qualquer aparelho que fizer login com essa mesma conta. Também é mantida uma cópia local para uso offline.
       <button class="btn btn-sm mt8" onclick="exportarBackup()">💾 Exportar backup</button>
       <label class="btn btn-sm mt8" style="cursor:pointer">
         📂 Importar backup
@@ -209,6 +224,7 @@ label.btn{display:flex}
     </div>
   </div>
 
+</div>
 </div>
 
 <div class="modal-overlay" id="modal-lote">
@@ -378,17 +394,170 @@ function openModal(id){ zTop++; const el=document.getElementById(id); el.style.z
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 
 function estadoPadrao(){ return { versao:1, lotes:[], clientes:[], vendas:[], pagamentos:[] }; }
-function carregar(){
-  try{
-    const raw = localStorage.getItem(STORAGE_KEY);
-    S = raw ? JSON.parse(raw) : estadoPadrao();
-  }catch(e){ S = estadoPadrao(); }
+function normalizarEstado(){
   if(!Array.isArray(S.lotes)) S.lotes=[];
   if(!Array.isArray(S.clientes)) S.clientes=[];
   if(!Array.isArray(S.vendas)) S.vendas=[];
   if(!Array.isArray(S.pagamentos)) S.pagamentos=[];
 }
-function salvar(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }catch(e){} }
+function carregarCacheLocal(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    S = raw ? JSON.parse(raw) : estadoPadrao();
+  }catch(e){ S = estadoPadrao(); }
+  normalizarEstado();
+}
+let salvarTimer = null;
+function salvar(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }catch(e){}
+  clearTimeout(salvarTimer);
+  salvarTimer = setTimeout(salvarNoDrive, 400);
+}
+
+// ─── AUTH + STORAGE (Google Drive) ───────────────────────────
+const CLIENT_ID = '269633658350-e3arrtm0jcmihufe5rrcbaa3vhisgg60.apps.googleusercontent.com';
+const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile';
+const ROOT_FOLDER_NAME = 'Controle de Vendas';
+let accessToken = null;
+let currentUser = null;
+let rootFolderId = null;
+let dadosFileId = null;
+
+function initGoogle(){
+  const hash = window.location.hash;
+  if(hash.includes('access_token')){
+    const params = new URLSearchParams(hash.slice(1));
+    const token = params.get('access_token');
+    const expiresIn = parseInt(params.get('expires_in')||'3600');
+    if(token){
+      accessToken = token;
+      const expiry = Date.now() + (expiresIn - 60) * 1000;
+      localStorage.setItem('cv_access_token', token);
+      localStorage.setItem('cv_token_expiry', expiry.toString());
+      history.replaceState(null, '', window.location.pathname);
+      fetch('https://www.googleapis.com/oauth2/v3/userinfo', {headers:{'Authorization':'Bearer '+token}})
+        .then(r=>r.json()).then(u=>{
+          currentUser = {name:u.name||'Usuário', email:u.email||''};
+          localStorage.setItem('cv_user', JSON.stringify(currentUser));
+          iniciarDrive();
+        }).catch(()=>{ currentUser={name:'Usuário',email:''}; iniciarDrive(); });
+      return;
+    }
+  }
+  const savedToken = localStorage.getItem('cv_access_token');
+  const savedExpiry = parseInt(localStorage.getItem('cv_token_expiry')||'0');
+  const savedUser = localStorage.getItem('cv_user');
+  if(savedToken && savedExpiry > Date.now()){
+    accessToken = savedToken;
+    currentUser = savedUser ? JSON.parse(savedUser) : {name:'Usuário', email:''};
+    iniciarDrive();
+    return;
+  }
+  document.getElementById('login-screen').style.display='flex';
+}
+function loginComGoogle(){
+  document.getElementById('btn-google-login').style.display='none';
+  document.getElementById('login-loading').style.display='block';
+  const params = new URLSearchParams({
+    client_id: CLIENT_ID,
+    redirect_uri: window.location.origin + window.location.pathname,
+    response_type: 'token',
+    scope: SCOPES,
+    include_granted_scopes: 'true'
+  });
+  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
+}
+function sair(){
+  localStorage.removeItem('cv_access_token');
+  localStorage.removeItem('cv_token_expiry');
+  localStorage.removeItem('cv_user');
+  location.reload();
+}
+function setSyncStatus(msg, isError){
+  const el = document.getElementById('sync-status');
+  if(!el) return;
+  el.textContent = msg;
+  el.style.color = isError ? 'var(--danger)' : 'var(--text2)';
+}
+function mostrarApp(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('main-app').style.display='block';
+  const info = document.getElementById('config-conta-info');
+  if(info) info.textContent = currentUser && currentUser.email ? ('Conectada como ' + currentUser.email) : 'Conectada';
+  go('resumo');
+}
+
+async function driveReq(method, url, body){
+  const headers = {'Authorization':'Bearer '+accessToken};
+  if(body) headers['Content-Type']='application/json';
+  const res = await fetch(url, {method, headers, body: body ? JSON.stringify(body) : undefined});
+  if(!res.ok) throw new Error('Drive '+res.status+' '+await res.text());
+  const ct = res.headers.get('content-type')||'';
+  return ct.includes('json') ? res.json() : res.text();
+}
+async function buscarOuCriarPasta(nome, parentId){
+  const q = `name='${nome}' and mimeType='application/vnd.google-apps.folder' and trashed=false`
+    + (parentId ? ` and '${parentId}' in parents` : '');
+  const r = await driveReq('GET', `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`);
+  if(r.files && r.files.length > 0) return r.files[0].id;
+  const body = {name:nome, mimeType:'application/vnd.google-apps.folder'};
+  if(parentId) body.parents = [parentId];
+  const f = await driveReq('POST', 'https://www.googleapis.com/drive/v3/files?fields=id', body);
+  return f.id;
+}
+async function buscarOuCriarArquivo(nome, parentId, conteudoInicial){
+  const q = `name='${nome}' and trashed=false and '${parentId}' in parents`;
+  const r = await driveReq('GET', `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`);
+  if(r.files && r.files.length > 0) return r.files[0].id;
+  const meta = new Blob([JSON.stringify({name:nome, mimeType:'application/json', parents:[parentId]})], {type:'application/json'});
+  const dados = new Blob([JSON.stringify(conteudoInicial)], {type:'application/json'});
+  const form = new FormData();
+  form.append('metadata', meta);
+  form.append('file', dados);
+  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+    {method:'POST', headers:{'Authorization':'Bearer '+accessToken}, body:form});
+  const j = await res.json();
+  return j.id;
+}
+async function lerArquivo(fileId){
+  const txt = await driveReq('GET', `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
+  return typeof txt === 'string' ? JSON.parse(txt) : txt;
+}
+async function salvarArquivoDrive(fileId, dados){
+  await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+    method:'PATCH',
+    headers:{'Authorization':'Bearer '+accessToken,'Content-Type':'application/json'},
+    body: JSON.stringify(dados)
+  });
+}
+async function salvarNoDrive(){
+  if(!accessToken || !dadosFileId) return;
+  setSyncStatus('sincronizando...');
+  try{
+    await salvarArquivoDrive(dadosFileId, S);
+    setSyncStatus('✓ sincronizado');
+  }catch(e){
+    console.error('Erro ao sincronizar com o Drive', e);
+    setSyncStatus('⚠️ não sincronizou — verifique a conexão', true);
+  }
+}
+async function iniciarDrive(){
+  setSyncStatus('conectando...');
+  try{
+    rootFolderId = await buscarOuCriarPasta(ROOT_FOLDER_NAME, null);
+    dadosFileId = await buscarOuCriarArquivo('dados.json', rootFolderId, estadoPadrao());
+    S = await lerArquivo(dadosFileId);
+    normalizarEstado();
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }catch(e){}
+    mostrarApp();
+    setSyncStatus('✓ sincronizado');
+  }catch(e){
+    console.error('Drive init error:', e);
+    setSyncStatus('⚠️ sem conexão — usando dados salvos neste aparelho', true);
+    carregarCacheLocal();
+    mostrarApp();
+  }
+}
 
 function lote(id){ return S.lotes.find(l=>l.id===id); }
 function cliente(id){ return S.clientes.find(c=>c.id===id); }
@@ -965,12 +1134,11 @@ function registrarServiceWorker(){
 }
 
 function iniciar(){
-  carregar();
   aplicarTema(localStorage.getItem(THEME_KEY));
   setTipoVenda('venda');
-  go('resumo');
   configurarInstalacao();
   registrarServiceWorker();
+  initGoogle();
 }
 document.addEventListener('DOMContentLoaded', iniciar);
 </script>
