@@ -140,13 +140,14 @@ label.btn{display:flex}
   <div id="screen-resumo" class="screen active">
     <div class="stat-grid">
       <div class="stat-card"><div class="stat-label">Total vendido</div><div class="stat-value" id="res-vendido">R$ 0,00</div></div>
-      <div class="stat-card"><div class="stat-label">Lucro projetado</div><div class="stat-value" id="res-lucro">R$ 0,00</div></div>
+      <div class="stat-card"><div class="stat-label">Lucro bruto</div><div class="stat-value" id="res-lucro">R$ 0,00</div></div>
+      <div class="stat-card" style="grid-column:1/-1;background:var(--primary-bg)"><div class="stat-label">Lucro líquido (já descontando uso próprio/presente)</div><div class="stat-value" id="res-lucro-liquido">R$ 0,00</div></div>
       <div class="stat-card"><div class="stat-label">Recebido</div><div class="stat-value" id="res-recebido">R$ 0,00</div></div>
       <div class="stat-card"><div class="stat-label">A receber</div><div class="stat-value" id="res-a-receber">R$ 0,00</div></div>
     </div>
     <div class="info-card mt8">
       <div class="pf"><div class="fl">Peças uso próprio/presente</div><div class="fv" id="res-pecas-internas">0</div></div>
-      <div class="pf"><div class="fl">Custo dessas peças</div><div class="fv" id="res-custo-interno">R$ 0,00</div></div>
+      <div class="pf"><div class="fl">Repasse ao fornecedor (uso próprio/presente)</div><div class="fv" id="res-custo-interno">R$ 0,00</div></div>
     </div>
     <div class="slabel" style="margin-top:20px">Lotes abertos</div>
     <div id="res-lotes-abertos"></div>
@@ -283,6 +284,8 @@ label.btn{display:flex}
     <input type="number" id="lote-quantidade" class="field-input" min="1">
     <div class="slabel" style="margin-top:12px">Comissão (% que fica com ela sobre cada venda)</div>
     <input type="number" id="lote-comissao" class="field-input" min="0" max="100" step="0.1" placeholder="Ex: 30">
+    <div class="slabel" style="margin-top:12px">Bônus de pontualidade na devolução (%, opcional)</div>
+    <input type="number" id="lote-bonus" class="field-input" min="0" max="100" step="0.1" placeholder="Ex: 5 (desconto no repasse se devolver no prazo)">
     <div class="slabel" style="margin-top:12px">Observações (opcional)</div>
     <textarea id="lote-obs" class="field-input" rows="2"></textarea>
     <button class="btn btn-primary mt16" onclick="salvarLote()">💾 Salvar</button>
@@ -311,6 +314,12 @@ label.btn{display:flex}
     <div class="info-card" id="fl-resumo"></div>
     <div class="slabel">Quantidade devolvida ao fornecedor</div>
     <input type="number" id="fl-devolvidas" class="field-input" min="0">
+    <div id="fl-bonus-area" style="display:none;margin-top:12px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px">
+        <input type="checkbox" id="fl-bonus-check" onchange="recalcularValorFecharLote()">
+        <span id="fl-bonus-label">Devolveu dentro do prazo (ganha bônus)</span>
+      </label>
+    </div>
     <div class="slabel" style="margin-top:12px">Valor a pagar ao fornecedor</div>
     <input type="text" id="fl-valor-pagar" class="field-input" inputmode="numeric" oninput="mascaraValor(this)">
     <div class="alert a-warn mt8" id="fl-aviso-receber" style="display:none"></div>
@@ -850,12 +859,15 @@ function renderTela(tela){
 }
 
 function renderResumo(){
+  const lucroBruto = lucroGeral();
+  const custoInterno = custoInternoGeral();
   document.getElementById('res-vendido').textContent = formatMoney(totalVendidoGeral());
-  document.getElementById('res-lucro').textContent = formatMoney(lucroGeral());
+  document.getElementById('res-lucro').textContent = formatMoney(lucroBruto);
+  document.getElementById('res-lucro-liquido').textContent = formatMoney(lucroBruto - custoInterno);
   document.getElementById('res-recebido').textContent = formatMoney(totalRecebidoGeral());
   document.getElementById('res-a-receber').textContent = formatMoney(totalAReceberGeral());
   document.getElementById('res-pecas-internas').textContent = pecasInternasGeral();
-  document.getElementById('res-custo-interno').textContent = formatMoney(custoInternoGeral());
+  document.getElementById('res-custo-interno').textContent = formatMoney(custoInterno);
 
   const abertos = S.lotes.filter(l=>l.status==='aberto').sort((a,b)=>b.criadoEm-a.criadoEm);
   document.getElementById('res-lotes-abertos').innerHTML = abertos.length
@@ -1086,6 +1098,7 @@ function preencherFormLote(l){
   document.getElementById('lote-data-devolucao').value = l ? (l.dataDevolucao||'') : '';
   document.getElementById('lote-quantidade').value = l ? l.quantidadeTotalPecas : '';
   document.getElementById('lote-comissao').value = l ? l.comissaoPercentual : '';
+  document.getElementById('lote-bonus').value = l ? (l.bonusPontualidadePercentual||'') : '';
   document.getElementById('lote-obs').value = l ? (l.observacoes||'') : '';
   loteEditId = l ? l.id : null;
 }
@@ -1094,6 +1107,7 @@ function salvarLote(){
   const nome = document.getElementById('lote-nome').value.trim();
   const qtd = parseInt(document.getElementById('lote-quantidade').value||'0',10);
   const comissao = parseFloat(document.getElementById('lote-comissao').value||'0');
+  const bonus = parseFloat(document.getElementById('lote-bonus').value||'0');
   const dataRec = document.getElementById('lote-data-recebimento').value;
   if(!nome){ toast('Informe o nome do lote'); return; }
   if(!qtd || qtd<=0){ toast('Informe a quantidade de peças'); return; }
@@ -1105,6 +1119,7 @@ function salvarLote(){
     dataDevolucao: document.getElementById('lote-data-devolucao').value,
     quantidadeTotalPecas: qtd,
     comissaoPercentual: comissao,
+    bonusPontualidadePercentual: bonus,
     observacoes: document.getElementById('lote-obs').value.trim()
   };
   if(loteEditId){ Object.assign(lote(loteEditId), dados); toast('Lote atualizado'); }
@@ -1141,12 +1156,13 @@ function abrirDetalheLote(id){
     <div class="pf"><div class="fl">Valor vendido</div><div class="fv">${formatMoney(vendido)}</div></div>
     <div class="pf"><div class="fl">Recebido</div><div class="fv">${formatMoney(recebido)}</div></div>
     <div class="pf"><div class="fl">A receber</div><div class="fv">${formatMoney(aReceber)}</div></div>
-    <div class="pf"><div class="fl">Lucro projetado</div><div class="fv">${formatMoney(lucro)}</div></div>
-    <div class="pf"><div class="fl">Custo uso próprio/presente</div><div class="fv">${formatMoney(custoInterno)}</div></div>`;
+    <div class="pf"><div class="fl">Lucro bruto</div><div class="fv">${formatMoney(lucro)}</div></div>
+    <div class="pf"><div class="fl">Repasse ao fornecedor (uso próprio/presente)</div><div class="fv">${formatMoney(custoInterno)}</div></div>
+    <div class="pf"><div class="fl">Lucro líquido</div><div class="fv">${formatMoney(lucro-custoInterno)}</div></div>`;
 
   const areaFechamento = document.getElementById('ld-fechamento-area');
   areaFechamento.innerHTML = (l.status==='fechado' && l.fechamento)
-    ? `<div class="alert a-warn mt16">Lote fechado em ${formatDate(l.fechamento.dataFechamentoReal)}<br>Peças devolvidas: ${l.fechamento.pecasDevolvidas}<br>Valor pago ao fornecedor: ${formatMoney(l.fechamento.valorPagoFornecedorCents)}</div>`
+    ? `<div class="alert a-warn mt16">Lote fechado em ${formatDate(l.fechamento.dataFechamentoReal)}<br>Peças devolvidas: ${l.fechamento.pecasDevolvidas}<br>Valor pago ao fornecedor: ${formatMoney(l.fechamento.valorPagoFornecedorCents)}${l.fechamento.bonusAplicado?` (com bônus de pontualidade — base era ${formatMoney(l.fechamento.valorBaseFornecedorCents)})`:''}</div>`
     : '';
 
   document.getElementById('ld-btn-fechar').style.display = l.status==='aberto' ? 'block':'none';
@@ -1171,6 +1187,7 @@ function reabrirLote(){
   abrirDetalheLote(loteDetalheId);
   renderTelaAtual();
 }
+let flValorBaseCents = 0;
 function abrirModalFecharLote(){
   fecharLoteId = loteDetalheId;
   const l = lote(fecharLoteId);
@@ -1185,10 +1202,20 @@ function abrirModalFecharLote(){
     <div class="pf"><div class="fl">Presente</div><div class="fv">${presente}</div></div>
     <div class="pf"><div class="fl">Ainda não lançadas</div><div class="fv">${naoLancadas}</div></div>`;
   document.getElementById('fl-devolvidas').value = naoLancadas>0?naoLancadas:0;
-  const valorEstimado = repasseFornecedorLote(l.id,'venda') + repasseFornecedorLote(l.id,'uso_proprio') + repasseFornecedorLote(l.id,'presente');
-  const valorEl = document.getElementById('fl-valor-pagar');
-  valorEl.dataset.cents = valorEstimado;
-  valorEl.value = formatMoney(valorEstimado);
+  flValorBaseCents = repasseFornecedorLote(l.id,'venda') + repasseFornecedorLote(l.id,'uso_proprio') + repasseFornecedorLote(l.id,'presente');
+
+  const bonusArea = document.getElementById('fl-bonus-area');
+  const bonusCheck = document.getElementById('fl-bonus-check');
+  if(l.bonusPontualidadePercentual>0){
+    bonusArea.style.display = 'block';
+    document.getElementById('fl-bonus-label').textContent = `Devolveu dentro do prazo (ganha ${l.bonusPontualidadePercentual}% de desconto no repasse)`;
+    bonusCheck.checked = !l.dataDevolucao || hojeISO() <= l.dataDevolucao;
+  } else {
+    bonusArea.style.display = 'none';
+    bonusCheck.checked = false;
+  }
+  recalcularValorFecharLote();
+
   const aReceber = aReceberLote(l.id);
   const avisoEl = document.getElementById('fl-aviso-receber');
   avisoEl.style.display = aReceber>0 ? 'block':'none';
@@ -1196,6 +1223,15 @@ function abrirModalFecharLote(){
   document.getElementById('fl-obs').value='';
   closeModal('modal-lote-detalhe');
   openModal('modal-fechar-lote');
+}
+function recalcularValorFecharLote(){
+  const l = lote(fecharLoteId);
+  const bonusCheck = document.getElementById('fl-bonus-check');
+  const aplicarBonus = l.bonusPontualidadePercentual>0 && bonusCheck.checked;
+  const valorFinal = aplicarBonus ? Math.round(flValorBaseCents * (100-l.bonusPontualidadePercentual)/100) : flValorBaseCents;
+  const valorEl = document.getElementById('fl-valor-pagar');
+  valorEl.dataset.cents = valorFinal;
+  valorEl.value = formatMoney(valorFinal);
 }
 function confirmarFechamentoLote(){
   const l = lote(fecharLoteId);
@@ -1208,6 +1244,7 @@ function confirmarFechamentoLote(){
     if(!confirm(`A soma das peças (${soma}) não bate com o total do lote (${l.quantidadeTotalPecas}). Deseja continuar mesmo assim?`)) return;
   }
   const valorPagoCents = parseInt(document.getElementById('fl-valor-pagar').dataset.cents||'0',10);
+  const bonusAplicado = l.bonusPontualidadePercentual>0 && document.getElementById('fl-bonus-check').checked;
   l.status='fechado';
   l.fechamento = {
     dataFechamentoReal: hojeISO(),
@@ -1215,6 +1252,8 @@ function confirmarFechamentoLote(){
     pecasUsoProprioSnapshot: usoProprio,
     pecasPresenteSnapshot: presente,
     pecasDevolvidas: devolvidas,
+    valorBaseFornecedorCents: flValorBaseCents,
+    bonusAplicado: bonusAplicado,
     valorPagoFornecedorCents: valorPagoCents,
     observacoes: document.getElementById('fl-obs').value.trim()
   };
