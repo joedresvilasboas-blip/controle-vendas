@@ -121,18 +121,20 @@ label.btn{display:flex}
 <div class="hdr">
   <div style="display:flex;justify-content:space-between;align-items:center">
     <div style="font-weight:700;font-size:17px">Controle de Vendas</div>
-    <button class="btn-help" onclick="alternarTema()" id="btn-tema" title="Alternar tema">🌙</button>
+    <div style="display:flex;gap:4px">
+      <button class="btn-help" onclick="go('config')" title="Configurações">⚙️</button>
+      <button class="btn-help" onclick="alternarTema()" id="btn-tema" title="Alternar tema">🌙</button>
+    </div>
   </div>
   <div id="sync-status" style="font-size:11px;color:var(--text2);margin-top:2px"></div>
 </div>
 
 <nav class="nav">
-  <button class="active" id="tab-resumo" onclick="go('resumo')"><span class="ni">📊</span>Resumo</button>
+  <button class="active" id="tab-lotes" onclick="go('lotes')"><span class="ni">📦</span>Lotes</button>
+  <button id="tab-clientes" onclick="go('clientes')"><span class="ni">👤</span>Clientes</button>
   <button id="tab-lancar" onclick="go('lancar')"><span class="ni">➕</span>Lançar</button>
   <button id="tab-vendas" onclick="go('vendas')"><span class="ni">🧾</span>Vendas</button>
-  <button id="tab-lotes" onclick="go('lotes')"><span class="ni">📦</span>Lotes</button>
-  <button id="tab-clientes" onclick="go('clientes')"><span class="ni">👤</span>Clientes</button>
-  <button id="tab-config" onclick="go('config')"><span class="ni">⚙️</span>Config</button>
+  <button id="tab-resumo" onclick="go('resumo')"><span class="ni">📊</span>Resumo</button>
 </nav>
 
 <div class="app">
@@ -851,7 +853,8 @@ function go(tela){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
   document.getElementById('screen-'+tela).classList.add('active');
-  document.getElementById('tab-'+tela).classList.add('active');
+  const tab = document.getElementById('tab-'+tela);
+  if(tab) tab.classList.add('active');
   renderTela(tela);
 }
 function renderTelaAtual(){ renderTela(telaAtual); }
