@@ -88,6 +88,23 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);padding:10px 18px;border-radius:20px;font-size:13px;opacity:0;pointer-events:none;transition:all .2s;z-index:900;max-width:80%;text-align:center}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 label.btn{display:flex}
+.drop{border:1.5px dashed var(--border2);border-radius:var(--radius-sm);padding:16px;text-align:center;cursor:pointer;color:var(--text2);font-size:13px}
+.drop:active{background:var(--bg2)}
+.drop .di{font-size:22px;margin-bottom:4px}
+.foto-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.thumb{display:flex;align-items:center;gap:10px;background:var(--bg2);border-radius:var(--radius-sm);padding:9px 12px;margin-top:6px;font-size:13px}
+.thumb .ti{font-size:16px}
+.thumb .tn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.thumb .tr{background:none;border:none;color:var(--danger);cursor:pointer;font-size:15px;padding:0 4px}
+.thumb img{width:32px;height:32px;object-fit:cover;border-radius:6px}
+#qr-video-wrap{display:none;position:fixed;inset:0;background:#000;z-index:600;flex-direction:column;align-items:center;justify-content:center;overflow:hidden}
+#qr-video-wrap.open{display:flex}
+#qr-video{width:100%;max-width:100%;height:100dvh;object-fit:cover}
+.qr-frame{position:absolute;width:240px;height:240px;border-radius:16px;box-shadow:0 0 0 9999px rgba(0,0,0,.55)}
+.qr-frame::before,.qr-frame::after{content:'';position:absolute;width:40px;height:40px;border-color:#fff;border-style:solid}
+.qr-frame::before{top:0;left:0;border-width:4px 0 0 4px;border-radius:12px 0 0 0}
+.qr-frame::after{bottom:0;right:0;border-width:0 4px 4px 0;border-radius:0 0 12px 0}
+.qr-cancel{margin-top:20px;padding:12px 32px;background:#fff;color:#000;border:none;border-radius:8px;font-size:16px;cursor:pointer}
 </style>
 </head>
 <body>
@@ -141,7 +158,7 @@ label.btn{display:flex}
     </div>
     <div id="lancar-form">
       <div class="slabel">Lote ativo</div>
-      <select id="lancar-lote-select" class="field-select" onchange="atualizarValorAutomatico()"></select>
+      <select id="lancar-lote-select" class="field-select"></select>
 
       <div class="slabel" style="margin-top:16px">Tipo de lançamento</div>
       <div class="tipo-grid" id="lancar-tipos">
@@ -163,9 +180,9 @@ label.btn{display:flex}
       </div>
 
       <div class="slabel" style="margin-top:16px">Quantidade de peças</div>
-      <input type="number" id="lancar-qtd" class="field-input" min="1" oninput="atualizarValorAutomatico()">
+      <input type="number" id="lancar-qtd" class="field-input" min="1">
 
-      <div class="slabel" style="margin-top:16px">Valor total</div>
+      <div class="slabel" style="margin-top:16px">Valor de etiqueta (preço do produto)</div>
       <input type="text" id="lancar-valor" class="field-input" inputmode="numeric" placeholder="R$ 0,00" oninput="mascaraValor(this)">
 
       <div class="slabel" style="margin-top:16px">Data</div>
@@ -173,6 +190,30 @@ label.btn{display:flex}
 
       <div class="slabel" style="margin-top:16px">Observações (opcional)</div>
       <input type="text" id="lancar-obs" class="field-input" placeholder="Ex: sutiã rendado preto">
+
+      <div class="slabel" style="margin-top:16px">Foto do produto (etiqueta que a cliente mandou)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="drop" onclick="document.getElementById('lancar-foto-camera').click()">
+          <div class="di">📷</div>Tirar foto
+        </div>
+        <div class="drop" onclick="document.getElementById('lancar-foto-galeria').click()">
+          <div class="di">📁</div>Da galeria
+        </div>
+      </div>
+      <input type="file" id="lancar-foto-camera" accept="image/*" capture="environment" style="display:none" onchange="attachFotoLancar(event)">
+      <input type="file" id="lancar-foto-galeria" accept="image/*" style="display:none" onchange="attachFotoLancar(event)">
+      <div id="lancar-fotos-list"></div>
+
+      <div class="slabel" style="margin-top:16px">Link do produto (QR code da etiqueta)</div>
+      <div class="drop" id="lancar-qr-area" onclick="iniciarQR('lancar')">
+        <div class="di">🔗</div>Ler QR code da etiqueta
+      </div>
+      <div id="lancar-link-show" style="display:none" class="thumb">
+        <span class="ti">🔗</span>
+        <span class="tn" id="lancar-link-text"></span>
+        <button class="tr" onclick="limparLinkProduto('lancar')">✕</button>
+      </div>
+      <input type="text" id="lancar-link-manual" class="field-input mt8" placeholder="Ou cole o link aqui" oninput="setLinkProdutoManual('lancar', this.value)">
 
       <button class="btn btn-primary mt16" onclick="addVenda()">➕ Adicionar</button>
     </div>
@@ -240,8 +281,8 @@ label.btn{display:flex}
     <input type="date" id="lote-data-devolucao" class="field-input">
     <div class="slabel" style="margin-top:12px">Quantidade total de peças</div>
     <input type="number" id="lote-quantidade" class="field-input" min="1">
-    <div class="slabel" style="margin-top:12px">Custo por peça (fixo, pago ao fornecedor)</div>
-    <input type="text" id="lote-custo" class="field-input" inputmode="numeric" placeholder="R$ 0,00" oninput="mascaraValor(this)">
+    <div class="slabel" style="margin-top:12px">Comissão (% que fica com ela sobre cada venda)</div>
+    <input type="number" id="lote-comissao" class="field-input" min="0" max="100" step="0.1" placeholder="Ex: 30">
     <div class="slabel" style="margin-top:12px">Observações (opcional)</div>
     <textarea id="lote-obs" class="field-input" rows="2"></textarea>
     <button class="btn btn-primary mt16" onclick="salvarLote()">💾 Salvar</button>
@@ -319,6 +360,9 @@ label.btn{display:flex}
     <input type="date" id="vd-data" class="field-input">
     <div class="slabel" style="margin-top:12px">Observações</div>
     <input type="text" id="vd-obs" class="field-input">
+    <div class="slabel" style="margin-top:16px">Fotos</div>
+    <div id="vd-fotos-list"></div>
+    <div id="vd-link-area"></div>
     <div id="vd-resumo-pagamento" class="total-bar mt16">
       <div>
         <div style="font-size:12px;color:var(--text2)">Total · Pago · Saldo</div>
@@ -355,6 +399,27 @@ label.btn{display:flex}
   </div>
 </div>
 
+<div id="qr-video-wrap">
+  <video id="qr-video" autoplay playsinline muted></video>
+  <div class="qr-frame">
+    <span style="position:absolute;top:0;right:0;width:40px;height:40px;border-top:4px solid #fff;border-right:4px solid #fff;border-radius:0 12px 0 0"></span>
+    <span style="position:absolute;bottom:0;left:0;width:40px;height:40px;border-bottom:4px solid #fff;border-left:4px solid #fff;border-radius:0 0 0 12px"></span>
+  </div>
+  <p style="position:absolute;bottom:100px;color:#fff;font-size:14px;text-align:center;padding:0 32px;opacity:.85">Aponte para o QR code da etiqueta</p>
+  <button class="qr-cancel" onclick="pararQR()" style="position:absolute;bottom:36px">✕ Cancelar</button>
+</div>
+
+<div class="modal-overlay" id="qr-confirm-modal">
+  <div class="modal">
+    <div class="modal-title">Link encontrado</div>
+    <div style="background:var(--bg2);border-radius:var(--radius-sm);padding:12px;font-size:12px;word-break:break-all;color:var(--text);line-height:1.5;margin-bottom:16px" id="qr-confirm-text"></div>
+    <button class="btn btn-primary" onclick="aceitarQR()">✅ Confirmar e usar</button>
+    <button class="btn mt8" onclick="rejeitarQR()">🔄 Ler novamente</button>
+    <button class="btn btn-ghost mt8" onclick="cancelarQRConfirm()">Cancelar</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
 <script>
 const STORAGE_KEY='cv_state';
 const THEME_KEY='cv_tema';
@@ -366,6 +431,11 @@ let loteEditId=null, loteDetalheId=null, fecharLoteId=null;
 let clienteEditId=null, clienteDetalheId=null, clienteContextoLancar=false;
 let vendaDetalheId=null;
 let deferredPrompt=null;
+let fotosAtuais=[];
+let linkProdutoAtual='';
+let qrContexto='lancar';
+let zxingReader=null;
+let qrStream=null;
 
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
 function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -379,6 +449,124 @@ function mascaraValor(el){
   const cents = digits ? parseInt(digits,10) : 0;
   el.dataset.cents = cents;
   el.value = formatMoney(cents);
+}
+
+// ─── FOTOS DO PRODUTO ─────────────────────────────────────────
+function corrigirOrientacaoImagem(file){
+  return new Promise((resolve, reject)=>{
+    if(window.createImageBitmap){
+      createImageBitmap(file, {imageOrientation:'from-image'}).then(bitmap=>{
+        const canvas = document.createElement('canvas');
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        canvas.getContext('2d').drawImage(bitmap, 0, 0);
+        bitmap.close && bitmap.close();
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      }).catch(()=>{
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = () => reject(new Error('Erro ao ler arquivo'));
+        reader.readAsDataURL(file);
+      });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result);
+    reader.onerror = () => reject(new Error('Erro ao ler arquivo'));
+    reader.readAsDataURL(file);
+  });
+}
+function attachFotoLancar(e){
+  const f = e.target.files[0];
+  if(!f) return;
+  corrigirOrientacaoImagem(f).then(dataUrl=>{
+    fotosAtuais.push({ name: f.name || ('foto-'+Date.now()+'.jpg'), type:'image/jpeg', data:dataUrl, driveId:null, driveLink:null });
+    renderFotosAtuais('lancar');
+  }).catch(()=>{ toast('Não foi possível carregar a foto'); });
+  e.target.value='';
+}
+function renderFotosAtuais(){
+  const el = document.getElementById('lancar-fotos-list');
+  el.innerHTML = fotosAtuais.map((f,i)=>`
+    <div class="thumb">
+      <img src="${f.data}" alt="">
+      <span class="tn">${escapeHtml(f.name)}</span>
+      <button class="tr" onclick="rmFotoAtual(${i})">✕</button>
+    </div>`).join('');
+}
+function rmFotoAtual(i){ fotosAtuais.splice(i,1); renderFotosAtuais(); }
+
+// ─── LINK DO PRODUTO / QR CODE ────────────────────────────────
+async function iniciarQR(contexto){
+  qrContexto = contexto;
+  document.getElementById('qr-video-wrap').classList.add('open');
+  try{
+    if(!zxingReader){
+      const hints = new Map();
+      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.QR_CODE]);
+      hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+      zxingReader = new ZXing.BrowserMultiFormatReader(hints);
+    }
+    qrStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080} }
+    });
+    const video = document.getElementById('qr-video');
+    video.srcObject = qrStream;
+    video.setAttribute('playsinline','true');
+    await video.play();
+    await zxingReader.decodeFromStream(qrStream, video, (result)=>{
+      if(result){
+        const txt = result.getText();
+        if(txt){ pararQR(); confirmarQR(txt); }
+      }
+    });
+  }catch(e){
+    console.error('QR error:', e);
+    pararQR();
+    toast('Câmera não disponível. Cole o link manualmente.');
+  }
+}
+function pararQR(){
+  if(zxingReader){ try{ zxingReader.reset(); }catch(e){} }
+  if(qrStream){ qrStream.getTracks().forEach(t=>t.stop()); qrStream=null; }
+  document.getElementById('qr-video-wrap').classList.remove('open');
+}
+function confirmarQR(txt){
+  document.getElementById('qr-confirm-text').textContent = txt;
+  document.getElementById('qr-confirm-modal').classList.add('open');
+  window._pendingQR = txt;
+}
+function aceitarQR(){
+  document.getElementById('qr-confirm-modal').classList.remove('open');
+  if(window._pendingQR) setLinkProdutoManual(qrContexto, window._pendingQR);
+  window._pendingQR = null;
+}
+function rejeitarQR(){
+  document.getElementById('qr-confirm-modal').classList.remove('open');
+  window._pendingQR = null;
+  setTimeout(()=>iniciarQR(qrContexto), 300);
+}
+function cancelarQRConfirm(){
+  document.getElementById('qr-confirm-modal').classList.remove('open');
+  window._pendingQR = null;
+}
+function setLinkProdutoManual(contexto, v){
+  if(!v || !v.trim().startsWith('http')) return;
+  if(contexto==='lancar'){
+    linkProdutoAtual = v.trim();
+    document.getElementById('lancar-link-text').textContent = linkProdutoAtual;
+    document.getElementById('lancar-link-show').style.display='flex';
+    document.getElementById('lancar-qr-area').style.display='none';
+    document.getElementById('lancar-link-manual').value='';
+  }
+}
+function limparLinkProduto(contexto){
+  if(contexto==='lancar'){
+    linkProdutoAtual = '';
+    document.getElementById('lancar-link-show').style.display='none';
+    document.getElementById('lancar-qr-area').style.display='block';
+    document.getElementById('lancar-link-manual').value='';
+  }
 }
 
 function toast(msg){
@@ -408,8 +596,17 @@ function carregarCacheLocal(){
   normalizarEstado();
 }
 let salvarTimer = null;
+function estadoParaPersistir(){
+  return {
+    ...S,
+    vendas: S.vendas.map(v=>({
+      ...v,
+      fotos: (v.fotos||[]).map(f=>({name:f.name, type:f.type, driveId:f.driveId||null, driveLink:f.driveLink||null}))
+    }))
+  };
+}
 function salvar(){
-  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }catch(e){}
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(estadoParaPersistir())); }catch(e){}
   clearTimeout(salvarTimer);
   salvarTimer = setTimeout(salvarNoDrive, 400);
 }
@@ -530,11 +727,49 @@ async function salvarArquivoDrive(fileId, dados){
     body: JSON.stringify(dados)
   });
 }
+async function salvarImagemDrive(nome, base64, parentId){
+  const mimeType = base64.split(';')[0].split(':')[1] || 'image/jpeg';
+  const byteStr = atob(base64.split(',')[1]);
+  const arr = new Uint8Array(byteStr.length);
+  for(let i=0;i<byteStr.length;i++) arr[i]=byteStr.charCodeAt(i);
+  const blob = new Blob([arr], {type:mimeType});
+  const meta = new Blob([JSON.stringify({name:nome, parents:[parentId]})], {type:'application/json'});
+  const form = new FormData();
+  form.append('metadata', meta);
+  form.append('file', blob);
+  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink',
+    {method:'POST', headers:{'Authorization':'Bearer '+accessToken}, body:form});
+  return await res.json();
+}
+let pastaFotosIdCache = null;
+async function getPastaFotosId(){
+  if(pastaFotosIdCache) return pastaFotosIdCache;
+  pastaFotosIdCache = await buscarOuCriarPasta('fotos', rootFolderId);
+  return pastaFotosIdCache;
+}
+async function processarFotosParaSalvar(){
+  const pastaId = await getPastaFotosId();
+  for(const v of S.vendas){
+    if(!v.fotos || !v.fotos.length) continue;
+    for(const foto of v.fotos){
+      if(foto.driveId) continue;
+      if(foto.data && foto.data.startsWith('data:')){
+        try{
+          const f = await salvarImagemDrive(v.id+'_'+foto.name, foto.data, pastaId);
+          foto.driveId = f.id;
+          foto.driveLink = f.webViewLink;
+        }catch(e){ console.warn('Falha ao enviar foto para o Drive', e); }
+      }
+    }
+  }
+}
 async function salvarNoDrive(){
   if(!accessToken || !dadosFileId) return;
   setSyncStatus('sincronizando...');
   try{
-    await salvarArquivoDrive(dadosFileId, S);
+    await processarFotosParaSalvar();
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(estadoParaPersistir())); }catch(e){}
+    await salvarArquivoDrive(dadosFileId, estadoParaPersistir());
     setSyncStatus('✓ sincronizado');
   }catch(e){
     console.error('Erro ao sincronizar com o Drive', e);
@@ -575,8 +810,17 @@ function statusPagamentoVenda(venda){
 function pecasPorTipo(loteId, tipo){ return vendasDoLote(loteId).filter(v=>v.tipo===tipo).reduce((s,v)=>s+v.quantidadePecas,0); }
 function estoqueRestanteLote(l){ const usadas = vendasDoLote(l.id).reduce((s,v)=>s+v.quantidadePecas,0); return l.quantidadeTotalPecas - usadas; }
 function valorVendidoLote(loteId){ return vendasDoLote(loteId).filter(v=>v.tipo==='venda').reduce((s,v)=>s+v.valorTotalCents,0); }
-function custoPecasLote(loteId, tipo){ const l=lote(loteId); return pecasPorTipo(loteId,tipo) * l.custoPorPecaCents; }
-function lucroLote(loteId){ const l=lote(loteId); const vendidas=pecasPorTipo(loteId,'venda'); return valorVendidoLote(loteId) - vendidas*l.custoPorPecaCents; }
+function repasseFornecedorVenda(v){
+  const l = lote(v.loteId);
+  return Math.round(v.valorTotalCents * (100 - l.comissaoPercentual) / 100);
+}
+function comissaoVenda(v){ return v.valorTotalCents - repasseFornecedorVenda(v); }
+function repasseFornecedorLote(loteId, tipo){
+  return vendasDoLote(loteId).filter(v=>v.tipo===tipo).reduce((s,v)=>s+repasseFornecedorVenda(v),0);
+}
+function lucroLote(loteId){
+  return vendasDoLote(loteId).filter(v=>v.tipo==='venda').reduce((s,v)=>s+comissaoVenda(v),0);
+}
 function recebidoLote(loteId){ return vendasDoLote(loteId).filter(v=>v.tipo==='venda').reduce((s,v)=>s+valorPagoVenda(v.id),0); }
 function aReceberLote(loteId){ return valorVendidoLote(loteId) - recebidoLote(loteId); }
 
@@ -585,7 +829,7 @@ function lucroGeral(){ return S.lotes.reduce((s,l)=>s+lucroLote(l.id),0); }
 function totalRecebidoGeral(){ return S.lotes.reduce((s,l)=>s+recebidoLote(l.id),0); }
 function totalAReceberGeral(){ return totalVendidoGeral() - totalRecebidoGeral(); }
 function pecasInternasGeral(){ return S.lotes.reduce((s,l)=>s+pecasPorTipo(l.id,'uso_proprio')+pecasPorTipo(l.id,'presente'),0); }
-function custoInternoGeral(){ return S.lotes.reduce((s,l)=>s+custoPecasLote(l.id,'uso_proprio')+custoPecasLote(l.id,'presente'),0); }
+function custoInternoGeral(){ return S.lotes.reduce((s,l)=>s+repasseFornecedorLote(l.id,'uso_proprio')+repasseFornecedorLote(l.id,'presente'),0); }
 function saldoClienteTotal(clienteId){ return S.vendas.filter(v=>v.tipo==='venda' && v.clienteId===clienteId).reduce((s,v)=>s+saldoVenda(v),0); }
 
 function go(tela){
@@ -632,26 +876,13 @@ function setTipoVenda(tipo){
   document.getElementById('tipo-btn-'+tipo).classList.add('sel');
   document.getElementById('campo-cliente').style.display = tipo==='venda' ? 'block':'none';
   document.getElementById('campo-beneficiario').style.display = tipo==='presente' ? 'block':'none';
-  const valorInput = document.getElementById('lancar-valor');
-  valorInput.readOnly = tipo!=='venda';
-  atualizarValorAutomatico();
-}
-function atualizarValorAutomatico(){
-  if(tipoAtual==='venda') return;
-  const loteId = document.getElementById('lancar-lote-select').value;
-  const l = lote(loteId);
-  const qtd = parseInt(document.getElementById('lancar-qtd').value||'0',10);
-  const cents = l ? qtd*l.custoPorPecaCents : 0;
-  const el = document.getElementById('lancar-valor');
-  el.dataset.cents = cents;
-  el.value = formatMoney(cents);
 }
 function renderLancar(){
   const abertos = S.lotes.filter(l=>l.status==='aberto');
   const sel = document.getElementById('lancar-lote-select');
   const anterior = sel.value;
   sel.innerHTML = abertos.length
-    ? abertos.map(l=>`<option value="${l.id}">${escapeHtml(l.nome)} (custo ${formatMoney(l.custoPorPecaCents)}/peça)</option>`).join('')
+    ? abertos.map(l=>`<option value="${l.id}">${escapeHtml(l.nome)} (comissão ${l.comissaoPercentual}%)</option>`).join('')
     : `<option value="">Nenhum lote aberto</option>`;
   if(abertos.some(l=>l.id===anterior)) sel.value = anterior;
 
@@ -665,8 +896,6 @@ function renderLancar(){
 
   document.getElementById('lancar-sem-lote').style.display = abertos.length ? 'none':'block';
   document.getElementById('lancar-form').style.display = abertos.length ? 'block':'none';
-
-  atualizarValorAutomatico();
 }
 function addVenda(){
   const loteId = document.getElementById('lancar-lote-select').value;
@@ -684,13 +913,8 @@ function addVenda(){
     beneficiario = document.getElementById('lancar-beneficiario').value.trim();
   }
 
-  let valorCents;
-  if(tipoAtual==='venda'){
-    valorCents = parseInt(document.getElementById('lancar-valor').dataset.cents||'0',10);
-    if(!valorCents){ toast('Informe o valor da venda'); return; }
-  } else {
-    valorCents = qtd * l.custoPorPecaCents;
-  }
+  const valorCents = parseInt(document.getElementById('lancar-valor').dataset.cents||'0',10);
+  if(!valorCents){ toast('Informe o valor de etiqueta do produto'); return; }
 
   const restanteAntes = estoqueRestanteLote(l);
   if(qtd > restanteAntes){
@@ -699,14 +923,22 @@ function addVenda(){
 
   const data = document.getElementById('lancar-data').value || hojeISO();
   const obs = document.getElementById('lancar-obs').value.trim();
-  S.vendas.push({ id:uid(), loteId, tipo:tipoAtual, clienteId, beneficiario, data, quantidadePecas:qtd, valorTotalCents:valorCents, observacoes:obs, criadoEm:Date.now() });
+  S.vendas.push({
+    id:uid(), loteId, tipo:tipoAtual, clienteId, beneficiario, data,
+    quantidadePecas:qtd, valorTotalCents:valorCents, observacoes:obs,
+    fotos: fotosAtuais.slice(), linkProduto: linkProdutoAtual,
+    criadoEm:Date.now()
+  });
   salvar();
   toast('Lançamento adicionado');
 
   document.getElementById('lancar-qtd').value='';
   document.getElementById('lancar-obs').value='';
   document.getElementById('lancar-beneficiario').value='';
-  if(tipoAtual==='venda'){ const v=document.getElementById('lancar-valor'); v.value=''; v.dataset.cents='0'; }
+  const v=document.getElementById('lancar-valor'); v.value=''; v.dataset.cents='0';
+  fotosAtuais = [];
+  renderFotosAtuais('lancar');
+  limparLinkProduto('lancar');
   renderLancar();
 }
 
@@ -719,8 +951,9 @@ function vendaCardHtml(v){
     : status==='parcial' ? '<span class="badge badge-parcial">Parcial</span>'
     : status==='pendente' ? '<span class="badge badge-pendente">Pendente</span>'
     : '<span class="badge badge-interno">Interno</span>';
+  const marcadores = ((v.fotos&&v.fotos.length)?' 📎':'') + (v.linkProduto?' 🔗':'');
   return `<div class="venda-card" onclick="abrirDetalheVenda('${v.id}')">
-    <div class="vc-top"><span class="vc-nome">${label}</span>${badge}</div>
+    <div class="vc-top"><span class="vc-nome">${label}${marcadores}</span>${badge}</div>
     <div class="vc-info">${v.quantidadePecas} peça(s) · ${formatMoney(v.valorTotalCents)} · ${formatDate(v.data)}${l?(' · '+escapeHtml(l.nome)):''}</div>
   </div>`;
 }
@@ -752,7 +985,15 @@ function abrirDetalheVenda(id){
   const valorEl = document.getElementById('vd-valor');
   valorEl.dataset.cents = v.valorTotalCents;
   valorEl.value = formatMoney(v.valorTotalCents);
-  valorEl.readOnly = v.tipo !== 'venda';
+  document.getElementById('vd-fotos-list').innerHTML = (v.fotos||[]).length
+    ? v.fotos.map(f=> f.data
+        ? `<div class="thumb"><img src="${f.data}" alt=""><span class="tn">${escapeHtml(f.name)}</span></div>`
+        : `<div class="thumb"><span class="ti">🖼️</span><a class="tn" href="${f.driveLink}" target="_blank">${escapeHtml(f.name)}</a></div>`
+      ).join('')
+    : '<div class="empty-sm">Nenhuma foto anexada</div>';
+  document.getElementById('vd-link-area').innerHTML = v.linkProduto
+    ? `<a class="btn btn-ghost mt8" href="${v.linkProduto}" target="_blank">🔗 Ver produto no site do fornecedor</a>`
+    : '';
   document.getElementById('vd-btn-pagamento').style.display = v.tipo==='venda' ? 'block':'none';
   document.getElementById('vd-resumo-pagamento').style.display = v.tipo==='venda' ? 'flex':'none';
   const pago = valorPagoVenda(v.id);
@@ -770,12 +1011,7 @@ function salvarEdicaoVenda(){
   v.quantidadePecas = parseInt(document.getElementById('vd-qtd').value||'0',10);
   v.data = document.getElementById('vd-data').value;
   v.observacoes = document.getElementById('vd-obs').value.trim();
-  if(v.tipo==='venda'){
-    v.valorTotalCents = parseInt(document.getElementById('vd-valor').dataset.cents||'0',10);
-  } else {
-    const l = lote(v.loteId);
-    v.valorTotalCents = v.quantidadePecas * l.custoPorPecaCents;
-  }
+  v.valorTotalCents = parseInt(document.getElementById('vd-valor').dataset.cents||'0',10);
   salvar();
   toast('Venda atualizada');
   closeModal('modal-venda');
@@ -849,9 +1085,7 @@ function preencherFormLote(l){
   document.getElementById('lote-data-recebimento').value = l ? l.dataRecebimento : hojeISO();
   document.getElementById('lote-data-devolucao').value = l ? (l.dataDevolucao||'') : '';
   document.getElementById('lote-quantidade').value = l ? l.quantidadeTotalPecas : '';
-  const custoEl = document.getElementById('lote-custo');
-  custoEl.dataset.cents = l ? l.custoPorPecaCents : 0;
-  custoEl.value = l ? formatMoney(l.custoPorPecaCents) : '';
+  document.getElementById('lote-comissao').value = l ? l.comissaoPercentual : '';
   document.getElementById('lote-obs').value = l ? (l.observacoes||'') : '';
   loteEditId = l ? l.id : null;
 }
@@ -859,18 +1093,18 @@ function abrirNovoLote(){ preencherFormLote(null); openModal('modal-lote'); }
 function salvarLote(){
   const nome = document.getElementById('lote-nome').value.trim();
   const qtd = parseInt(document.getElementById('lote-quantidade').value||'0',10);
-  const custoCents = parseInt(document.getElementById('lote-custo').dataset.cents||'0',10);
+  const comissao = parseFloat(document.getElementById('lote-comissao').value||'0');
   const dataRec = document.getElementById('lote-data-recebimento').value;
   if(!nome){ toast('Informe o nome do lote'); return; }
   if(!qtd || qtd<=0){ toast('Informe a quantidade de peças'); return; }
-  if(!custoCents){ toast('Informe o custo por peça'); return; }
+  if(!comissao || comissao<=0 || comissao>100){ toast('Informe a comissão (entre 0 e 100%)'); return; }
   if(!dataRec){ toast('Informe a data de recebimento'); return; }
   const dados = {
     nome, fornecedor: document.getElementById('lote-fornecedor').value.trim(),
     dataRecebimento: dataRec,
     dataDevolucao: document.getElementById('lote-data-devolucao').value,
     quantidadeTotalPecas: qtd,
-    custoPorPecaCents: custoCents,
+    comissaoPercentual: comissao,
     observacoes: document.getElementById('lote-obs').value.trim()
   };
   if(loteEditId){ Object.assign(lote(loteEditId), dados); toast('Lote atualizado'); }
@@ -890,7 +1124,7 @@ function abrirDetalheLote(id){
   const recebido = recebidoLote(id);
   const aReceber = aReceberLote(id);
   const lucro = lucroLote(id);
-  const custoInterno = custoPecasLote(id,'uso_proprio') + custoPecasLote(id,'presente');
+  const custoInterno = repasseFornecedorLote(id,'uso_proprio') + repasseFornecedorLote(id,'presente');
 
   document.getElementById('ld-titulo').textContent = l.nome;
   document.getElementById('ld-info').innerHTML = `
@@ -898,7 +1132,7 @@ function abrirDetalheLote(id){
     <div class="pf"><div class="fl">Recebido em</div><div class="fv">${formatDate(l.dataRecebimento)}</div></div>
     <div class="pf"><div class="fl">Devolução prevista</div><div class="fv">${formatDate(l.dataDevolucao)}</div></div>
     <div class="pf"><div class="fl">Total de peças</div><div class="fv">${l.quantidadeTotalPecas}</div></div>
-    <div class="pf"><div class="fl">Custo por peça</div><div class="fv">${formatMoney(l.custoPorPecaCents)}</div></div>`;
+    <div class="pf"><div class="fl">Comissão</div><div class="fv">${l.comissaoPercentual}%</div></div>`;
   document.getElementById('ld-stats').innerHTML = `
     <div class="pf"><div class="fl">Vendidas</div><div class="fv">${vendidas}</div></div>
     <div class="pf"><div class="fl">Uso próprio</div><div class="fv">${usoProprio}</div></div>
@@ -951,7 +1185,7 @@ function abrirModalFecharLote(){
     <div class="pf"><div class="fl">Presente</div><div class="fv">${presente}</div></div>
     <div class="pf"><div class="fl">Ainda não lançadas</div><div class="fv">${naoLancadas}</div></div>`;
   document.getElementById('fl-devolvidas').value = naoLancadas>0?naoLancadas:0;
-  const valorEstimado = (vendidas+usoProprio+presente)*l.custoPorPecaCents;
+  const valorEstimado = repasseFornecedorLote(l.id,'venda') + repasseFornecedorLote(l.id,'uso_proprio') + repasseFornecedorLote(l.id,'presente');
   const valorEl = document.getElementById('fl-valor-pagar');
   valorEl.dataset.cents = valorEstimado;
   valorEl.value = formatMoney(valorEstimado);
@@ -1063,7 +1297,7 @@ function excluirClienteAtual(){
 }
 
 function exportarBackup(){
-  const blob = new Blob([JSON.stringify(S,null,2)], {type:'application/json'});
+  const blob = new Blob([JSON.stringify(estadoParaPersistir(),null,2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
