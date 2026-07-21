@@ -321,6 +321,7 @@ label.btn{display:flex}
         <span id="fl-bonus-label">Devolveu dentro do prazo (ganha bônus)</span>
       </label>
     </div>
+    <div class="info-card" id="fl-detalhe-calculo" style="margin-top:12px"></div>
     <div class="slabel" style="margin-top:12px">Valor a pagar ao fornecedor</div>
     <input type="text" id="fl-valor-pagar" class="field-input" inputmode="numeric" oninput="mascaraValor(this)">
     <div class="alert a-warn mt8" id="fl-aviso-receber" style="display:none"></div>
@@ -1203,7 +1204,8 @@ function reabrirLote(){
   abrirDetalheLote(loteDetalheId);
   renderTelaAtual();
 }
-let flValorBaseCents = 0;
+let flRepasseVendasCents = 0;
+let flRepasseInternoCents = 0;
 function abrirModalFecharLote(){
   fecharLoteId = loteDetalheId;
   const l = lote(fecharLoteId);
@@ -1218,13 +1220,14 @@ function abrirModalFecharLote(){
     <div class="pf"><div class="fl">Presente</div><div class="fv">${presente}</div></div>
     <div class="pf"><div class="fl">Ainda não lançadas</div><div class="fv">${naoLancadas}</div></div>`;
   document.getElementById('fl-devolvidas').value = naoLancadas>0?naoLancadas:0;
-  flValorBaseCents = valorPagarFornecedorLote(l.id);
+  flRepasseVendasCents = repasseFornecedorLote(l.id,'venda');
+  flRepasseInternoCents = repasseFornecedorLote(l.id,'uso_proprio') + repasseFornecedorLote(l.id,'presente');
 
   const bonusArea = document.getElementById('fl-bonus-area');
   const bonusCheck = document.getElementById('fl-bonus-check');
   if(l.bonusPontualidadePercentual>0){
     bonusArea.style.display = 'block';
-    document.getElementById('fl-bonus-label').textContent = `Devolveu dentro do prazo (ganha ${l.bonusPontualidadePercentual}% de desconto no repasse)`;
+    document.getElementById('fl-bonus-label').textContent = `Devolveu dentro do prazo (ganha ${l.bonusPontualidadePercentual}% de desconto no repasse das vendas)`;
     bonusCheck.checked = !l.dataDevolucao || hojeISO() <= l.dataDevolucao;
   } else {
     bonusArea.style.display = 'none';
@@ -1244,10 +1247,15 @@ function recalcularValorFecharLote(){
   const l = lote(fecharLoteId);
   const bonusCheck = document.getElementById('fl-bonus-check');
   const aplicarBonus = l.bonusPontualidadePercentual>0 && bonusCheck.checked;
-  const valorFinal = aplicarBonus ? Math.round(flValorBaseCents * (100-l.bonusPontualidadePercentual)/100) : flValorBaseCents;
+  const repasseVendasFinal = aplicarBonus ? Math.round(flRepasseVendasCents * (100-l.bonusPontualidadePercentual)/100) : flRepasseVendasCents;
+  const valorFinal = repasseVendasFinal + flRepasseInternoCents;
   const valorEl = document.getElementById('fl-valor-pagar');
   valorEl.dataset.cents = valorFinal;
   valorEl.value = formatMoney(valorFinal);
+  document.getElementById('fl-detalhe-calculo').innerHTML = `
+    <div class="pf"><div class="fl">Repasse das vendas</div><div class="fv">${formatMoney(flRepasseVendasCents)}</div></div>
+    ${aplicarBonus?`<div class="pf"><div class="fl">Bônus pontualidade (-${l.bonusPontualidadePercentual}%)</div><div class="fv">-${formatMoney(flRepasseVendasCents-repasseVendasFinal)}</div></div>`:''}
+    <div class="pf"><div class="fl">Repasse uso próprio/presente</div><div class="fv">${formatMoney(flRepasseInternoCents)}</div></div>`;
 }
 function confirmarFechamentoLote(){
   const l = lote(fecharLoteId);
@@ -1268,7 +1276,7 @@ function confirmarFechamentoLote(){
     pecasUsoProprioSnapshot: usoProprio,
     pecasPresenteSnapshot: presente,
     pecasDevolvidas: devolvidas,
-    valorBaseFornecedorCents: flValorBaseCents,
+    valorBaseFornecedorCents: flRepasseVendasCents + flRepasseInternoCents,
     bonusAplicado: bonusAplicado,
     valorPagoFornecedorCents: valorPagoCents,
     observacoes: document.getElementById('fl-obs').value.trim()
