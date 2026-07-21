@@ -297,6 +297,7 @@ label.btn{display:flex}
   <div class="modal">
     <div class="modal-title" id="ld-titulo"></div>
     <div class="info-card" id="ld-info"></div>
+    <div id="ld-valor-fornecedor"></div>
     <div class="slabel">Números do lote</div>
     <div class="info-card" id="ld-stats"></div>
     <div id="ld-fechamento-area"></div>
@@ -827,6 +828,9 @@ function comissaoVenda(v){ return v.valorTotalCents - repasseFornecedorVenda(v);
 function repasseFornecedorLote(loteId, tipo){
   return vendasDoLote(loteId).filter(v=>v.tipo===tipo).reduce((s,v)=>s+repasseFornecedorVenda(v),0);
 }
+function valorPagarFornecedorLote(loteId){
+  return vendasDoLote(loteId).reduce((s,v)=>s+repasseFornecedorVenda(v),0);
+}
 function lucroLote(loteId){
   return vendasDoLote(loteId).filter(v=>v.tipo==='venda').reduce((s,v)=>s+comissaoVenda(v),0);
 }
@@ -874,9 +878,10 @@ function renderResumo(){
     ? abertos.map(l=>{
         const restante = estoqueRestanteLote(l);
         const aReceber = aReceberLote(l.id);
+        const aPagar = valorPagarFornecedorLote(l.id);
         return `<div class="lote-card" onclick="go('lotes');setTimeout(function(){abrirDetalheLote('${l.id}')},50)">
           <div class="vc-top"><span class="vc-nome">${escapeHtml(l.nome)}</span><span class="badge badge-parcial">Aberto</span></div>
-          <div class="vc-info">restam ${restante} peça(s) · a receber ${formatMoney(aReceber)}</div>
+          <div class="vc-info">restam ${restante} peça(s) · a receber ${formatMoney(aReceber)} · a pagar ao fornecedor ${formatMoney(aPagar)}</div>
         </div>`;
       }).join('')
     : '<div class="empty-sm">Nenhum lote aberto no momento</div>';
@@ -1075,7 +1080,7 @@ function loteCardHtml(l){
   const restante = estoqueRestanteLote(l);
   return `<div class="lote-card" onclick="abrirDetalheLote('${l.id}')">
     <div class="vc-top"><span class="vc-nome">${escapeHtml(l.nome)}</span>${l.status==='aberto'?'<span class="badge badge-parcial">Aberto</span>':'<span class="badge badge-interno">Fechado</span>'}</div>
-    <div class="vc-info">${l.quantidadeTotalPecas} peças · custo ${formatMoney(l.custoPorPecaCents)}/peça${l.status==='aberto'?(' · restam '+restante):''}</div>
+    <div class="vc-info">${l.quantidadeTotalPecas} peças · comissão ${l.comissaoPercentual}%${l.status==='aberto'?(' · restam '+restante):''}</div>
   </div>`;
 }
 function renderLotes(){
@@ -1091,14 +1096,15 @@ function sugerirNomeLote(){
   const d = new Date();
   return 'Lote '+meses[d.getMonth()]+'/'+d.getFullYear();
 }
+const LOTE_PADRAO = { fornecedor:'Morena Lingerie', comissaoPercentual:30, bonusPontualidadePercentual:5 };
 function preencherFormLote(l){
   document.getElementById('lote-nome').value = l ? l.nome : sugerirNomeLote();
-  document.getElementById('lote-fornecedor').value = l ? (l.fornecedor||'') : '';
+  document.getElementById('lote-fornecedor').value = l ? (l.fornecedor||'') : LOTE_PADRAO.fornecedor;
   document.getElementById('lote-data-recebimento').value = l ? l.dataRecebimento : hojeISO();
   document.getElementById('lote-data-devolucao').value = l ? (l.dataDevolucao||'') : '';
   document.getElementById('lote-quantidade').value = l ? l.quantidadeTotalPecas : '';
-  document.getElementById('lote-comissao').value = l ? l.comissaoPercentual : '';
-  document.getElementById('lote-bonus').value = l ? (l.bonusPontualidadePercentual||'') : '';
+  document.getElementById('lote-comissao').value = l ? l.comissaoPercentual : LOTE_PADRAO.comissaoPercentual;
+  document.getElementById('lote-bonus').value = l ? (l.bonusPontualidadePercentual||'') : LOTE_PADRAO.bonusPontualidadePercentual;
   document.getElementById('lote-obs').value = l ? (l.observacoes||'') : '';
   loteEditId = l ? l.id : null;
 }
@@ -1148,6 +1154,10 @@ function abrirDetalheLote(id){
     <div class="pf"><div class="fl">Devolução prevista</div><div class="fv">${formatDate(l.dataDevolucao)}</div></div>
     <div class="pf"><div class="fl">Total de peças</div><div class="fv">${l.quantidadeTotalPecas}</div></div>
     <div class="pf"><div class="fl">Comissão</div><div class="fv">${l.comissaoPercentual}%</div></div>`;
+  const valorPagarFornecedor = valorPagarFornecedorLote(id);
+  document.getElementById('ld-valor-fornecedor').innerHTML = l.status==='aberto'
+    ? `<div class="total-bar" style="background:var(--primary-bg)"><span>Valor a pagar ao fornecedor (até agora)</span><strong>${formatMoney(valorPagarFornecedor)}</strong></div>`
+    : '';
   document.getElementById('ld-stats').innerHTML = `
     <div class="pf"><div class="fl">Vendidas</div><div class="fv">${vendidas}</div></div>
     <div class="pf"><div class="fl">Uso próprio</div><div class="fv">${usoProprio}</div></div>
@@ -1167,12 +1177,18 @@ function abrirDetalheLote(id){
 
   document.getElementById('ld-btn-fechar').style.display = l.status==='aberto' ? 'block':'none';
   document.getElementById('ld-btn-reabrir').style.display = l.status==='fechado' ? 'block':'none';
-  document.getElementById('ld-btn-excluir').style.display = (S.vendas.filter(v=>v.loteId===id).length===0) ? 'block':'none';
   openModal('modal-lote-detalhe');
 }
 function editarLoteAtual(){ preencherFormLote(lote(loteDetalheId)); closeModal('modal-lote-detalhe'); openModal('modal-lote'); }
 function excluirLoteAtual(){
-  if(!confirm('Excluir este lote? Essa ação não pode ser desfeita.')) return;
+  const vendasDoLoteAtual = S.vendas.filter(v=>v.loteId===loteDetalheId);
+  const msg = vendasDoLoteAtual.length
+    ? `Este lote tem ${vendasDoLoteAtual.length} venda(s)/lançamento(s) registrados. Excluir o lote vai apagar esses lançamentos e os pagamentos associados também. Essa ação não pode ser desfeita. Continuar?`
+    : 'Excluir este lote? Essa ação não pode ser desfeita.';
+  if(!confirm(msg)) return;
+  const vendaIds = vendasDoLoteAtual.map(v=>v.id);
+  S.pagamentos = S.pagamentos.filter(p=>!vendaIds.includes(p.vendaId));
+  S.vendas = S.vendas.filter(v=>v.loteId!==loteDetalheId);
   S.lotes = S.lotes.filter(l=>l.id!==loteDetalheId);
   salvar();
   closeModal('modal-lote-detalhe');
@@ -1202,7 +1218,7 @@ function abrirModalFecharLote(){
     <div class="pf"><div class="fl">Presente</div><div class="fv">${presente}</div></div>
     <div class="pf"><div class="fl">Ainda não lançadas</div><div class="fv">${naoLancadas}</div></div>`;
   document.getElementById('fl-devolvidas').value = naoLancadas>0?naoLancadas:0;
-  flValorBaseCents = repasseFornecedorLote(l.id,'venda') + repasseFornecedorLote(l.id,'uso_proprio') + repasseFornecedorLote(l.id,'presente');
+  flValorBaseCents = valorPagarFornecedorLote(l.id);
 
   const bonusArea = document.getElementById('fl-bonus-area');
   const bonusCheck = document.getElementById('fl-bonus-check');
