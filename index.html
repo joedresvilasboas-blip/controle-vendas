@@ -1204,8 +1204,8 @@ function reabrirLote(){
   abrirDetalheLote(loteDetalheId);
   renderTelaAtual();
 }
-let flRepasseVendasCents = 0;
-let flRepasseInternoCents = 0;
+let flValorBrutoCents = 0;
+let flValorLiquidoCents = 0;
 function abrirModalFecharLote(){
   fecharLoteId = loteDetalheId;
   const l = lote(fecharLoteId);
@@ -1220,14 +1220,14 @@ function abrirModalFecharLote(){
     <div class="pf"><div class="fl">Presente</div><div class="fv">${presente}</div></div>
     <div class="pf"><div class="fl">Ainda não lançadas</div><div class="fv">${naoLancadas}</div></div>`;
   document.getElementById('fl-devolvidas').value = naoLancadas>0?naoLancadas:0;
-  flRepasseVendasCents = repasseFornecedorLote(l.id,'venda');
-  flRepasseInternoCents = repasseFornecedorLote(l.id,'uso_proprio') + repasseFornecedorLote(l.id,'presente');
+  flValorBrutoCents = vendasDoLote(l.id).reduce((s,v)=>s+v.valorTotalCents,0);
+  flValorLiquidoCents = valorPagarFornecedorLote(l.id);
 
   const bonusArea = document.getElementById('fl-bonus-area');
   const bonusCheck = document.getElementById('fl-bonus-check');
   if(l.bonusPontualidadePercentual>0){
     bonusArea.style.display = 'block';
-    document.getElementById('fl-bonus-label').textContent = `Devolveu dentro do prazo (ganha ${l.bonusPontualidadePercentual}% de desconto no repasse das vendas)`;
+    document.getElementById('fl-bonus-label').textContent = `Devolveu dentro do prazo (ganha ${l.bonusPontualidadePercentual}% de desconto no valor líquido total)`;
     bonusCheck.checked = !l.dataDevolucao || hojeISO() <= l.dataDevolucao;
   } else {
     bonusArea.style.display = 'none';
@@ -1247,15 +1247,14 @@ function recalcularValorFecharLote(){
   const l = lote(fecharLoteId);
   const bonusCheck = document.getElementById('fl-bonus-check');
   const aplicarBonus = l.bonusPontualidadePercentual>0 && bonusCheck.checked;
-  const repasseVendasFinal = aplicarBonus ? Math.round(flRepasseVendasCents * (100-l.bonusPontualidadePercentual)/100) : flRepasseVendasCents;
-  const valorFinal = repasseVendasFinal + flRepasseInternoCents;
+  const valorFinal = aplicarBonus ? Math.round(flValorLiquidoCents * (100-l.bonusPontualidadePercentual)/100) : flValorLiquidoCents;
   const valorEl = document.getElementById('fl-valor-pagar');
   valorEl.dataset.cents = valorFinal;
   valorEl.value = formatMoney(valorFinal);
   document.getElementById('fl-detalhe-calculo').innerHTML = `
-    <div class="pf"><div class="fl">Repasse das vendas</div><div class="fv">${formatMoney(flRepasseVendasCents)}</div></div>
-    ${aplicarBonus?`<div class="pf"><div class="fl">Bônus pontualidade (-${l.bonusPontualidadePercentual}%)</div><div class="fv">-${formatMoney(flRepasseVendasCents-repasseVendasFinal)}</div></div>`:''}
-    <div class="pf"><div class="fl">Repasse uso próprio/presente</div><div class="fv">${formatMoney(flRepasseInternoCents)}</div></div>`;
+    <div class="pf"><div class="fl">Valor bruto total (vendas + uso próprio/presente)</div><div class="fv">${formatMoney(flValorBrutoCents)}</div></div>
+    <div class="pf"><div class="fl">Valor líquido (comissão ${l.comissaoPercentual}%)</div><div class="fv">${formatMoney(flValorLiquidoCents)}</div></div>
+    ${aplicarBonus?`<div class="pf"><div class="fl">Bônus pontualidade (-${l.bonusPontualidadePercentual}%)</div><div class="fv">-${formatMoney(flValorLiquidoCents-valorFinal)}</div></div>`:''}`;
 }
 function confirmarFechamentoLote(){
   const l = lote(fecharLoteId);
@@ -1276,7 +1275,7 @@ function confirmarFechamentoLote(){
     pecasUsoProprioSnapshot: usoProprio,
     pecasPresenteSnapshot: presente,
     pecasDevolvidas: devolvidas,
-    valorBaseFornecedorCents: flRepasseVendasCents + flRepasseInternoCents,
+    valorBaseFornecedorCents: flValorLiquidoCents,
     bonusAplicado: bonusAplicado,
     valorPagoFornecedorCents: valorPagoCents,
     observacoes: document.getElementById('fl-obs').value.trim()
