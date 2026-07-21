@@ -140,16 +140,22 @@ label.btn{display:flex}
 <div class="app">
 
   <div id="screen-resumo" class="screen active">
+    <div class="total-bar" style="background:var(--primary-bg)">
+      <span>Valor a pagar ao fornecedor (lotes abertos)</span>
+      <strong id="res-a-pagar-fornecedor">R$ 0,00</strong>
+    </div>
     <div class="stat-grid">
       <div class="stat-card"><div class="stat-label">Total vendido</div><div class="stat-value" id="res-vendido">R$ 0,00</div></div>
-      <div class="stat-card"><div class="stat-label">Lucro bruto</div><div class="stat-value" id="res-lucro">R$ 0,00</div></div>
-      <div class="stat-card" style="grid-column:1/-1;background:var(--primary-bg)"><div class="stat-label">Lucro líquido (já descontando uso próprio/presente)</div><div class="stat-value" id="res-lucro-liquido">R$ 0,00</div></div>
       <div class="stat-card"><div class="stat-label">Recebido</div><div class="stat-value" id="res-recebido">R$ 0,00</div></div>
       <div class="stat-card"><div class="stat-label">A receber</div><div class="stat-value" id="res-a-receber">R$ 0,00</div></div>
+      <div class="stat-card" style="background:var(--primary-bg)">
+        <div class="stat-label">Lucro líquido</div>
+        <div class="stat-value" id="res-lucro-liquido">R$ 0,00</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px">bruto: <span id="res-lucro-bruto">R$ 0,00</span></div>
+      </div>
     </div>
     <div class="info-card mt8">
       <div class="pf"><div class="fl">Peças uso próprio/presente</div><div class="fv" id="res-pecas-internas">0</div></div>
-      <div class="pf"><div class="fl">Repasse ao fornecedor (uso próprio/presente)</div><div class="fv" id="res-custo-interno">R$ 0,00</div></div>
     </div>
     <div class="slabel" style="margin-top:20px">Lotes abertos</div>
     <div id="res-lotes-abertos"></div>
@@ -846,6 +852,7 @@ function totalRecebidoGeral(){ return S.lotes.reduce((s,l)=>s+recebidoLote(l.id)
 function totalAReceberGeral(){ return totalVendidoGeral() - totalRecebidoGeral(); }
 function pecasInternasGeral(){ return S.lotes.reduce((s,l)=>s+pecasPorTipo(l.id,'uso_proprio')+pecasPorTipo(l.id,'presente'),0); }
 function custoInternoGeral(){ return S.lotes.reduce((s,l)=>s+repasseFornecedorLote(l.id,'uso_proprio')+repasseFornecedorLote(l.id,'presente'),0); }
+function totalAPagarFornecedorGeral(){ return S.lotes.filter(l=>l.status==='aberto').reduce((s,l)=>s+valorPagarFornecedorLote(l.id),0); }
 function saldoClienteTotal(clienteId){ return S.vendas.filter(v=>v.tipo==='venda' && v.clienteId===clienteId).reduce((s,v)=>s+saldoVenda(v),0); }
 
 function go(tela){
@@ -869,13 +876,13 @@ function renderTela(tela){
 function renderResumo(){
   const lucroBruto = lucroGeral();
   const custoInterno = custoInternoGeral();
+  document.getElementById('res-a-pagar-fornecedor').textContent = formatMoney(totalAPagarFornecedorGeral());
   document.getElementById('res-vendido').textContent = formatMoney(totalVendidoGeral());
-  document.getElementById('res-lucro').textContent = formatMoney(lucroBruto);
+  document.getElementById('res-lucro-bruto').textContent = formatMoney(lucroBruto);
   document.getElementById('res-lucro-liquido').textContent = formatMoney(lucroBruto - custoInterno);
   document.getElementById('res-recebido').textContent = formatMoney(totalRecebidoGeral());
   document.getElementById('res-a-receber').textContent = formatMoney(totalAReceberGeral());
   document.getElementById('res-pecas-internas').textContent = pecasInternasGeral();
-  document.getElementById('res-custo-interno').textContent = formatMoney(custoInterno);
 
   const abertos = S.lotes.filter(l=>l.status==='aberto').sort((a,b)=>b.criadoEm-a.criadoEm);
   document.getElementById('res-lotes-abertos').innerHTML = abertos.length
